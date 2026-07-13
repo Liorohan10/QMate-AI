@@ -1,0 +1,11 @@
+test-id: t_root-arms-hum-mig-rax-magic-anoa-aani-sla-locale
+name: Hooks demo
+platform: web
+setup:
+  - h_cart-define-lys-ticker-got-layout-coach-ledger-pickle-vair
+  - h_hose-fire-pad-bullet-metric-inca-estado-spired-made-catch
+teardown:
+  - h_boss-para-rip-met-spar-brain-rough-pole-holy-dark
+steps:
+  - Open the hooks demo page
+  - Verify hook-provided data is visible

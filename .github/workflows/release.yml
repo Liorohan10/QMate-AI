@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Release bump
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+      subscription_auth_target_version:
+        description: Existing agent-qa version to publish only subscription-auth for; leave blank for a full release
+        required: false
+        type: string
+      github_release_target_version:
+        description: Existing agent-qa version to publish only the GitHub Release for; leave blank for a full release
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  npm:
+    name: Publish npm packages
+    if: ${{ inputs.subscription_auth_target_version == '' && inputs.github_release_target_version == '' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Release preflight
+        env:
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+        run: pnpm exec node scripts/release/verify.mjs --bump "${{ inputs.bump }}" --stage preflight
+
+      - name: Write release version
+        id: version
+        run: pnpm exec node scripts/release/version.mjs --bump "${{ inputs.bump }}" --write
+
+      - name: Write PostHog project key
+        env:
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+        run: pnpm exec node scripts/release/posthog.mjs --write
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate skills
+        run: pnpm run validate:skills
+
+      - name: Validate agent instructions
+        run: pnpm run validate:agents
+
+      - name: Validate publish surface
+        run: pnpm run validate:publish
+
+      - name: Stage packages
+        run: pnpm exec node scripts/release/stage-packages.mjs --target-version "${{ steps.version.outputs.version }}" --out .release/staged-packages
+
+      - name: Release postbuild verification
+        env:
+          POSTHOG_PROJECT_KEY: ${{ secrets.POSTHOG_PROJECT_KEY }}
+        run: pnpm exec node scripts/release/verify.mjs --bump "${{ inputs.bump }}" --stage postbuild --target-version "${{ steps.version.outputs.version }}" --staged-dir .release/staged-packages
+
+      - name: Create release commit and tag
+        run: pnpm exec node scripts/release/git.mjs --commit-tag
+
+      - name: Push release commit and tag
+        run: git push origin HEAD:${{ github.ref_name }} --follow-tags
+
+      - name: Publish packages
+        run: pnpm exec node scripts/release/publish.mjs --staged-dir .release/staged-packages
+
+  subscription-auth:
+    name: Publish subscription auth
+    needs: npm
+    if: ${{ always() && inputs.github_release_target_version == '' && (inputs.subscription_auth_target_version != '' || needs.npm.result == 'success') }}
+    runs-on: ubuntu-latest
+    env:
+      SUBSCRIPTION_AUTH_TARGET_VERSION: ${{ inputs.subscription_auth_target_version || needs.npm.outputs.version }}
+
+    steps:
+      - name: Validate subscription auth release token
+        env:
+          SUBSCRIPTION_AUTH_RELEASE_TOKEN: ${{ secrets.SUBSCRIPTION_AUTH_RELEASE_TOKEN }}
+        run: |
+          if [ -z "$SUBSCRIPTION_AUTH_RELEASE_TOKEN" ]; then
+            echo "::error::Set SUBSCRIPTION_AUTH_RELEASE_TOKEN in the vostride/agent-qa repository Actions secrets. The token needs Actions: read and write on vostride/agent-qa-subscription-auth."
+            exit 1
+          fi
+
+      - name: Dispatch subscription auth release
+        env:
+          GH_TOKEN: ${{ secrets.SUBSCRIPTION_AUTH_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          started_at="$(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run release.yml \
+            --repo vostride/agent-qa-subscription-auth \
+            --ref main \
+            -f target_version="$SUBSCRIPTION_AUTH_TARGET_VERSION"
+
+          run_id=""
+          for attempt in {1..60}; do
+            run_id="$(gh run list \
+              --repo vostride/agent-qa-subscription-auth \
+              --workflow release.yml \
+              --branch main \
+              --event workflow_dispatch \
+              --limit 20 \
+              --json databaseId,displayTitle,createdAt \
+              --jq '.[] | select(.displayTitle == "Release subscription auth '"$SUBSCRIPTION_AUTH_TARGET_VERSION"'") | select(.createdAt >= "'"$started_at"'") | .databaseId' \
+              | head -n 1)"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -z "$run_id" ]; then
+            echo "::error::Timed out waiting for subscription-auth release workflow to start."
+            exit 1
+          fi
+
+          gh run watch "$run_id" \
+            --repo vostride/agent-qa-subscription-auth \
+            --exit-status \
+            --interval 10
+
+  docker:
+    name: Publish Docker images
+    if: ${{ inputs.subscription_auth_target_version == '' && inputs.github_release_target_version == '' }}
+    needs:
+      - npm
+      - subscription-auth
+    uses: ./.github/workflows/docker-release.yml
+    with:
+      ref: v${{ needs.npm.outputs.version }}
+      move_latest: true
+    secrets: inherit
+
+  github-release:
+    name: Publish GitHub release
+    if: ${{ always() && (inputs.github_release_target_version != '' || (inputs.subscription_auth_target_version == '' && needs.npm.result == 'success' && needs.subscription-auth.result == 'success')) }}
+    needs:
+      - npm
+      - subscription-auth
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: v${{ inputs.github_release_target_version || needs.npm.outputs.version }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RELEASE_TARGET_VERSION: ${{ inputs.github_release_target_version || needs.npm.outputs.version }}
+        run: node scripts/release/github-release.mjs --version "$GITHUB_RELEASE_TARGET_VERSION" --repo "${{ github.repository }}"

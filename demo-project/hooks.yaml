@@ -1,0 +1,28 @@
+hooks:
+  - id: h_cart-define-lys-ticker-got-layout-coach-ledger-pickle-vair
+    name: Generate Timestamp
+    runtime: bash
+    file: hooks/generate-timestamp.sh
+    timeout: 10s
+  - id: h_hose-fire-pad-bullet-metric-inca-estado-spired-made-catch
+    name: Fetch API Data
+    runtime: node
+    file: hooks/fetch-api-data.js
+    timeout: 10s
+    network: true
+  - id: h_boss-para-rip-met-spar-brain-rough-pole-holy-dark
+    name: Log Cleanup
+    runtime: bash
+    file: hooks/log-cleanup.sh
+    timeout: 10s
+  - id: h_reak-bond-peat-super-che-streng-proper-juice-pone-bait
+    name: Set Runtime Env
+    runtime: node
+    file: hooks/set-runtime-env.js
+    timeout: 10s
+  - id: h_emma-appear-jati-sound-stan-omina-task-mes-tempt-boot
+    name: Fetch HN Top Story
+    runtime: node
+    file: hooks/fetch-hn-top-story.js
+    timeout: 10s
+    network: true

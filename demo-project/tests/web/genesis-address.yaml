@@ -1,0 +1,11 @@
+name: "User Registration Address Step"
+test-id: "t_berry-fora-lief-attar-hei-gem-answer-fine-pele-ammer"
+target: "genesis-join"
+context: "Test the user registration form address entry and progression to the next registration step"
+steps:
+  - Verify the registration form asks the user for their address
+  - Verify the primary residence checkbox is checked by default
+  - Enter a valid address into the address field
+  - Select the matching address from the autocomplete list
+  - Click the "Next" button to proceed
+  - Verify the page title confirms the next registration step has loaded

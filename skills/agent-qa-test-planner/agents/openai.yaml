@@ -1,0 +1,15 @@
+interface:
+  display_name: "agent-qa Test Planner"
+  short_description: "Design and create agent-qa YAML test plans"
+  default_prompt: "Use $agent-qa-test-planner to design a comprehensive YAML test plan based on requirements and website structure."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "agent-qa"
+      description: "agent-qa local MCP server for schema, ID, and authoring tools."
+      transport: "streamable_http"
+      url: "http://127.0.0.1:3471/mcp"
+
+policy:
+  allow_implicit_invocation: true

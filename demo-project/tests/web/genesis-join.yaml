@@ -1,0 +1,10 @@
+test-id: t_acorn-basin-cinder-dawn-elm-fjord-grove-haze-ivory-jet
+name: Genesis Energy Join Flow
+target: genesis-join
+steps:
+  - Verify the page heading says "What's your address?"
+  - Type "100 Queen Street, Auckland Central" into the address search input
+  - Click the matching address option from the autocomplete list
+  - Verify the "Is this your primary residence?" checkbox is checked
+  - Click on the "Next" button or continue prompt
+  - Verify the next page is loaded successfully

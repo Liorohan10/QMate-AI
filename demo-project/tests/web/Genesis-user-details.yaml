@@ -1,0 +1,38 @@
+name: "Genesis Join Flow — Capture Primary Applicant Details"
+test-id: "t_urnal-black-sak-how-switch-match-cat-eland-hero-depart"
+target: "genesis-join"
+use:
+  browser:
+    name: chromium
+    headless: true
+  timeout:
+    step: 3m
+    test: 30m
+context: |
+  The starting URL is https://www.genesisenergy.co.nz/join, which initially shows the address capture step with the heading "What's your address?".
+  This test assumes a fresh anonymous session with no prior login or saved progress, and that the join flow is being used in a normal browser session.
+  The crawl history shows that an address must be entered and confirmed before the flow proceeds to the residential fuel and plan selection screens, and only then can the personal details step be reached.
+  Use a valid New Zealand residential address that can advance the flow, such as "123 Main Street, Gore 9710" if no environment variable is provided; if configured, use {{env:TEST_ADDRESS}}.
+  The acceptance criteria for this story apply on the personal details step: title, first name, last name, date of birth, and phone number must be captured, the applicant must be at least 18 years old, names must not contain numbers, and the phone number must be a valid NZ format.
+steps:
+  - Verify the page heading says "What's your address?"
+  - Type "123 Main Street" into the street address field
+  - Wait for the address suggestions list to appear
+  - Click the suggestion for "123 Main Street, Gore 9710"
+  - Verify the primary residence button is visible
+  - Click the "Continue" button
+  - Verify the page heading changes to "What energy types are you looking for?"
+  - Click the "Electricity Only" button
+  - Click the "Continue" button
+  - Verify the page heading changes to "Which plan works for you?"
+  - Select the PowerHome plan
+  - Click the "Continue" button
+  - Verify the personal details form is displayed
+  - Verify the Title field is visible
+  - Type "Mr" into the Title field
+  - Type "John" into the First Name field
+  - Type "Doe" into the Last Name field
+  - Type "01/01/1990" into the Date of Birth field
+  - Type "0211234567" into the Phone Number field
+  - Click the "Next" button
+  - Verify the user proceeds to the next step
