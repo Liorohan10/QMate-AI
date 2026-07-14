@@ -3,18 +3,17 @@ import { randomUUID } from 'node:crypto'
 import { readFile, writeFile, stat, readdir, rm } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
 import { join, isAbsolute, basename, resolve, dirname, relative } from 'node:path'
+import * as docx from 'docx'
 
 import type { AttributePredicate, DashboardDatabase, InsightsBreakdownDimension, RunArtifactRow, RunRow, StepRow } from '../db/database.js'
 import type { TestRunner } from '../execution/test-runner.js'
 import type { JobQueue } from '../queue/job-queue.js'
 import { MemoryCatalogManager, isValidMemoryScopeId, type MemoryScope } from '../memory/memory-catalog-manager.js'
 import { extractTestFileMetadata, type SupportedPlatform, type TestFileManager } from '../tests/test-file-manager.js'
-import type { SuiteFileManager } from '../tests/suite-file-manager.js'
 import type { ConfigManager } from '../config/index.js'
-import { HookRegistryManager, isHookRegistryMutationError } from '../hooks/hook-registry-manager.js'
 import { readJsonBody } from './body-parser.js'
 import type { AnalyticsServiceConfig, LLMAuthProviderPlugin, ModelConfig, OAuthTokens } from '@vostride/agent-qa-core'
-import { AuthStateNameSchema, buildAnalyticsEvent, buildInternalRunAttributes, captureAnalytics, mergeRunAttributes, readAuth, writeAuth, removeAuth, getAgentQaVersion, getAgentQaUpdateStatus, getProviderOptions, getLLMAuthProviderPlugin, listAuthStateMetadata, listLLMAuthProviderPlugins, ModelConfigSchema, NamedLLMConfigSchema, WorkspaceSchema, ServicesSchema, RegistrySchema, UseSchema, MobileAppStateSchema, hashStepInstruction, TimeoutConfigSchema, CacheConfigSchema, HealingConfigSchema, PlannerConfigSchema, LoggingConfigSchema, LogCaptureConfigSchema, AccessibilityConfigSchema, DashboardConfigSchema, McpConfigSchema, RecordingConfigSchema, BrowserConfigSchema, AnalyticsSchema, AgentQaConfigSchema, TestDefinitionSchema, SuiteDefinitionSchema, parseEnvFile, serializeEnvFile, parseHooksFile, runHookInSandbox, RUNTIME_IMAGE_MAP, SecretStore, SecretRedactor, redactAuthStateValue, validateUserRunAttributes, discoverWorkspaceFiles, isWorkspacePathMatch, resolveAnalyticsStandardProperties, resolveMemoryRoot, resolveWorkspaceFileTarget } from '@vostride/agent-qa-core'
+import { AuthStateNameSchema, buildAnalyticsEvent, buildInternalRunAttributes, captureAnalytics, mergeRunAttributes, readAuth, writeAuth, removeAuth, getAgentQaVersion, getAgentQaUpdateStatus, getProviderOptions, getLLMAuthProviderPlugin, listAuthStateMetadata, listLLMAuthProviderPlugins, ModelConfigSchema, NamedLLMConfigSchema, WorkspaceSchema, ServicesSchema, RegistrySchema, UseSchema, MobileAppStateSchema, hashStepInstruction, TimeoutConfigSchema, CacheConfigSchema, HealingConfigSchema, PlannerConfigSchema, LoggingConfigSchema, LogCaptureConfigSchema, AccessibilityConfigSchema, DashboardConfigSchema, McpConfigSchema, RecordingConfigSchema, BrowserConfigSchema, AnalyticsSchema, AgentQaConfigSchema, TestDefinitionSchema, parseEnvFile, serializeEnvFile, SecretStore, SecretRedactor, redactAuthStateValue, validateUserRunAttributes, discoverWorkspaceFiles, isWorkspacePathMatch, resolveAnalyticsStandardProperties, resolveMemoryRoot, resolveWorkspaceFileTarget } from '@vostride/agent-qa-core'
 import type { ResolvedWorkspacePaths, RunAttributes, WorkspaceFileKind, WorkspaceFileRecord } from '@vostride/agent-qa-core'
 import { parse as parseYaml } from 'yaml'
 
@@ -540,13 +539,6 @@ function isPlainFileName(value: string): boolean {
     && !/[\\/\0]/.test(fileName)
 }
 
-function createHookRegistryManager(configManager?: ConfigManager, configPath?: string): HookRegistryManager | null {
-  if (!configManager || !configPath) {
-    return null
-  }
-  return new HookRegistryManager(configManager, configPath)
-}
-
 function normalizeRunFilterValue(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().toLowerCase()
@@ -770,12 +762,8 @@ function readTestYamlTimeoutMs(content: string): number | undefined {
 
 function readSuiteYamlTimeoutMs(content: string): number | undefined {
   try {
-    const parsedYaml = parseYaml(content)
-    const parsedSuite = SuiteDefinitionSchema.safeParse(parsedYaml)
-    if (parsedSuite.success) {
-      return parseUseTestTimeoutMs(parsedSuite.data.use)
-    }
-    return parseUseTestTimeoutMs((parsedYaml as { use?: unknown } | null | undefined)?.use)
+    const parsedYaml = parseYaml(content) as { use?: unknown } | null | undefined
+    return parseUseTestTimeoutMs(parsedYaml?.use)
   } catch {
     return undefined
   }
@@ -802,12 +790,8 @@ async function readConfigUseParallel(configManager?: ConfigManager): Promise<boo
 
 function readSuiteYamlParallel(content: string): boolean | undefined {
   try {
-    const parsedYaml = parseYaml(content)
-    const parsedSuite = SuiteDefinitionSchema.safeParse(parsedYaml)
-    if (parsedSuite.success) {
-      return parseUseParallel(parsedSuite.data.use)
-    }
-    return parseUseParallel((parsedYaml as { use?: unknown } | null | undefined)?.use)
+    const parsedYaml = parseYaml(content) as { use?: unknown } | null | undefined
+    return parseUseParallel(parsedYaml?.use)
   } catch {
     return undefined
   }
@@ -829,25 +813,13 @@ function withDashboardExecutionBuffer(
 }
 
 async function resolveDashboardExecutionTimeout(opts: {
-  isSuite: boolean
   file?: string
   normalizedTestPath?: string
   testFileManager?: TestFileManager
-  suiteFileManager?: SuiteFileManager
   configManager?: ConfigManager
 }): Promise<DashboardExecutionTimeout> {
   if (opts.file) {
-    if (opts.isSuite && opts.suiteFileManager) {
-      try {
-        const suiteContent = await opts.suiteFileManager.read(opts.file)
-        const suiteTimeout = readSuiteYamlTimeoutMs(suiteContent)
-        if (suiteTimeout) {
-          return withDashboardExecutionBuffer(suiteTimeout, 'suite.use.timeout.test')
-        }
-      } catch {
-        // Fall through to config timeout for draft or unreadable suite files.
-      }
-    } else if (!opts.isSuite && opts.testFileManager) {
+    if (opts.testFileManager) {
       try {
         const testContent = await opts.testFileManager.read(opts.normalizedTestPath ?? opts.file)
         const testTimeout = readTestYamlTimeoutMs(testContent)
@@ -1067,7 +1039,6 @@ async function resolveDashboardTestPattern(
   const patternWorkspace: ResolvedWorkspacePaths = {
     ...workspacePaths,
     testMatch: [pattern],
-    suiteMatch: [],
   }
   return candidates
     .filter((record) => isWorkspacePathMatch({
@@ -1079,20 +1050,7 @@ async function resolveDashboardTestPattern(
 }
 
 function isSuiteFilePath(filePath: string | undefined): boolean {
-  if (!filePath) return false
-  const normalized = filePath.toLowerCase()
-  return normalized.endsWith('.suite.yaml') || normalized.endsWith('.suite.yml')
-}
-
-async function normalizeDashboardSuitePath(
-  filePath: string,
-  suiteFileManager?: SuiteFileManager,
-): Promise<{ storagePath: string; executionPath: string }> {
-  if (!suiteFileManager) {
-    throw new Error('Suite file management is required for dashboard-triggered suite runs')
-  }
-
-  return suiteFileManager.resolvePath(filePath)
+  return false
 }
 
 function sanitizeQueuedRunMetadata(metadata: Record<string, unknown> | undefined): Record<string, unknown> {
@@ -1162,35 +1120,17 @@ async function readWorkspaceHooks(
 ): Promise<{
   hooks: Array<{ name: string }>
   filePath: string
-  resolvedHooks: Map<string, import('@vostride/agent-qa-core').HookDefinition>
+  resolvedHooks: Map<string, Record<string, unknown>>
   errors: string[]
   missing: boolean
   hookRegistryError?: string
 }> {
-  const hookRegistryManager = createHookRegistryManager(configManager, configPath)
-  if (!hookRegistryManager) {
-    return {
-      hooks: [],
-      filePath: '',
-      resolvedHooks: new Map(),
-      errors: ['Config management not available'],
-      missing: true,
-      hookRegistryError: 'Config management not available',
-    }
-  }
-
-  const [hookCatalog, prepareResult] = await Promise.all([
-    hookRegistryManager.readCatalog(),
-    hookRegistryManager.prepareForExecution(),
-  ])
-
   return {
-    hooks: hookCatalog.hooks.map((hook) => ({ name: hook.name })),
-    filePath: hookCatalog.filePath,
-    resolvedHooks: prepareResult.resolvedHooks,
-    errors: hookCatalog.errors,
-    missing: hookCatalog.missing,
-    hookRegistryError: prepareResult.hookRegistryError,
+    hooks: [],
+    filePath: '',
+    resolvedHooks: new Map(),
+    errors: [],
+    missing: true,
   }
 }
 
@@ -1212,114 +1152,7 @@ async function readWorkspaceEnvVars(
   }
 }
 
-function validateHookRunRequest(body: unknown): {
-  overrides: Record<string, string>
-  fieldErrors: Array<{ field: 'registry'; code: string; message: string }>
-} {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return {
-      overrides: {},
-      fieldErrors: [
-        {
-          field: 'registry',
-          code: 'invalid_payload',
-          message: 'Hook run payload is required',
-        },
-      ],
-    }
-  }
 
-  const rawOverrides = (body as { overrides?: unknown }).overrides
-  if (rawOverrides === undefined) {
-    return { overrides: {}, fieldErrors: [] }
-  }
-
-  if (!Array.isArray(rawOverrides)) {
-    return {
-      overrides: {},
-      fieldErrors: [
-        {
-          field: 'registry',
-          code: 'invalid_overrides',
-          message: 'Hook run overrides must be an array',
-        },
-      ],
-    }
-  }
-
-  const fieldErrors: Array<{ field: 'registry'; code: string; message: string }> = []
-  const overrides: Record<string, string> = {}
-  const seenKeys = new Set<string>()
-
-  rawOverrides.forEach((entry, index) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      fieldErrors.push({
-        field: 'registry',
-        code: 'invalid_override',
-        message: `Override ${index + 1} must be an object with key and value`,
-      })
-      return
-    }
-
-    const key = typeof (entry as { key?: unknown }).key === 'string'
-      ? (entry as { key: string }).key.trim()
-      : ''
-    const value = (entry as { value?: unknown }).value
-
-    if (!key) {
-      fieldErrors.push({
-        field: 'registry',
-        code: 'invalid_override_key',
-        message: `Override ${index + 1} must include a non-empty key`,
-      })
-      return
-    }
-
-    if (seenKeys.has(key)) {
-      fieldErrors.push({
-        field: 'registry',
-        code: 'duplicate_override_key',
-        message: `Override key "${key}" is duplicated`,
-      })
-      return
-    }
-
-    if (typeof value !== 'string') {
-      fieldErrors.push({
-        field: 'registry',
-        code: 'invalid_override_value',
-        message: `Override "${key}" must have a string value`,
-      })
-      return
-    }
-
-    seenKeys.add(key)
-    overrides[key] = value
-  })
-
-  return { overrides, fieldErrors }
-}
-
-function summarizeHookNetworkLogs(
-  networkLogs: Array<{
-    url: string
-    method: string
-    status: number
-    startTime: number
-    endTime: number
-  }> | undefined,
-): import('../hooks/hook-registry-types.js').HookRunNetworkLogEntry[] {
-  return (networkLogs ?? []).map((entry, index) => ({
-    id: `network-${index + 1}`,
-    method: entry.method,
-    url: entry.url,
-    statusCode: Number.isFinite(entry.status) ? entry.status : null,
-    durationMs: Number.isFinite(entry.endTime - entry.startTime)
-      ? Math.max(0, entry.endTime - entry.startTime)
-      : null,
-    error: null,
-  }))
-}
 
 interface RouterDeps {
   db: DashboardDatabase
@@ -1328,7 +1161,6 @@ interface RouterDeps {
   testRunner?: TestRunner
   jobQueue?: JobQueue
   testFileManager?: TestFileManager
-  suiteFileManager?: SuiteFileManager
   configManager?: ConfigManager
   configPath?: string
 
@@ -1348,7 +1180,7 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
   const deps: RouterDeps = 'db' in dbOrDeps && typeof (dbOrDeps as RouterDeps).db === 'object' && 'getRuns' in ((dbOrDeps as RouterDeps).db ?? {})
     ? dbOrDeps as RouterDeps
     : { db: dbOrDeps as DashboardDatabase, artifactsDir }
-  const { db, testRunner, jobQueue, testFileManager, suiteFileManager, configManager, workspacePaths, llmConfig, authFetch, sessionManager } = deps
+  const { db, testRunner, jobQueue, testFileManager, configManager, workspacePaths, llmConfig, authFetch, sessionManager } = deps
   const pluginOAuthSessions = new Map<string, PluginOAuthSession>()
   const analyticsBridge = deps.analyticsBridge ?? {
     buildAnalyticsEvent,
@@ -1926,12 +1758,9 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
             return
           }
           let normalizedFileTarget: { storagePath: string; executionPath: string } | null = null
-          const isSuiteFile = isSuiteFilePath(body.file)
           if (body.file) {
             try {
-              normalizedFileTarget = isSuiteFile
-                ? await normalizeDashboardSuitePath(body.file, suiteFileManager)
-                : await normalizeDashboardWorkspacePath(body.file, workspacePaths, 'test')
+              normalizedFileTarget = await normalizeDashboardWorkspacePath(body.file, workspacePaths, 'test')
             } catch (err) {
               json(res, { error: err instanceof Error ? err.message : String(err) }, 400)
               return
@@ -1951,7 +1780,7 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
           const runId = jobQueue.enqueue({
             name: body.name,
             filePath: normalizedFileTarget?.storagePath,
-            kind: isSuiteFile ? 'suite-parent' : 'test',
+            kind: 'test',
             attributes,
             priority: body.priority,
             platform: body.platform,
@@ -1959,7 +1788,6 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
             metadata: {
               ...sanitizeQueuedRunMetadata(body.metadata),
               args: normalizedFileTarget ? [normalizedFileTarget.executionPath] : [],
-              ...(isSuiteFile ? { isSuite: true } : {}),
             },
           })
           const pending = db.getPendingRuns()
@@ -2013,13 +1841,10 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
             return
           }
           const args: string[] = []
-          const isSuiteFile = isSuiteFilePath(body.file)
           let normalizedFileTarget: { storagePath: string; executionPath: string } | null = null
           try {
             normalizedFileTarget = body.file
-              ? isSuiteFile
-                ? await normalizeDashboardSuitePath(body.file, suiteFileManager)
-                : await normalizeDashboardWorkspacePath(body.file, workspacePaths, 'test')
+              ? await normalizeDashboardWorkspacePath(body.file, workspacePaths, 'test')
               : null
 
             if (body.file) {
@@ -2041,16 +1866,13 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
             json(res, { error: err instanceof Error ? err.message : String(err) }, 400)
             return
           }
-          const normalizedTestTarget = body.file && !isSuiteFile
-            ? normalizedFileTarget
-            : null
+          const normalizedTestTarget = normalizedFileTarget
           if (body.noCache) {
             args.push('--no-cache')
           }
           if (body.noMemory) {
             args.push('--no-memory')
           }
-          const isSuite = Boolean(isSuiteFile)
 
           let testName = body.file
             ? basename(normalizedFileTarget?.storagePath ?? body.file, '.yaml')
@@ -2059,16 +1881,7 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
           let fileParallel: boolean | undefined
           let platform: string | undefined
 
-          if (isSuite && body.file && suiteFileManager) {
-            // Parse suite YAML for name and platform
-            try {
-              const content = await suiteFileManager.read(normalizedFileTarget?.storagePath ?? body.file)
-              fileParallel = readSuiteYamlParallel(content)
-              const parsed = parseYaml(content)
-              if (parsed?.name) testName = parsed.name
-              platform = parsed?.config?.platform ?? undefined
-            } catch { /* fall back to defaults */ }
-          } else if (body.file && testFileManager) {
+          if (body.file && testFileManager) {
             // Parse test YAML for name, use.parallel, and platform metadata
             try {
               const readPath = normalizedTestTarget?.storagePath ?? body.file
@@ -2089,18 +1902,16 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
           const configParallel = await readConfigUseParallel(configManager)
           const effectiveParallel = fileParallel ?? configParallel ?? false
           const executionTimeout = await resolveDashboardExecutionTimeout({
-            isSuite,
             file: normalizedFileTarget?.storagePath ?? body.file,
             normalizedTestPath: normalizedTestTarget?.storagePath,
             testFileManager,
-            suiteFileManager,
             configManager,
           })
 
           const runId = jobQueue.enqueue({
             name: testName,
             filePath: normalizedFileTarget?.storagePath ?? body.file,
-            kind: isSuite ? 'suite-parent' : 'test',
+            kind: 'test',
             attributes: buildRunRequestAttributes({
               trigger: triggerSource.trigger,
               runner: body.local === false ? 'browserstack' : 'local',
@@ -2109,7 +1920,6 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
             parallel: effectiveParallel,
             metadata: {
               args,
-              isSuite: isSuite || undefined,
               ...toExecutionTimeoutMetadata(executionTimeout),
             },
           })
@@ -2174,140 +1984,7 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
       return
     }
 
-    // POST /api/suites/validate — validate suite YAML content
-    if (path === '/api/suites/validate' && req.method === 'POST') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      readJsonBody<{ content: string }>(req)
-        .then(async (body) => {
-          const result = await suiteFileManager.validate(body.content ?? '')
-          json(res, result)
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
 
-    // GET /api/suites — list all suite files
-    if (path === '/api/suites' && req.method === 'GET') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      suiteFileManager.list()
-        .then(files => json(res, { files }))
-        .catch(() => json(res, { error: 'Failed to list suite files' }, 500))
-      return
-    }
-
-    // POST /api/suites — create a new suite file
-    if (path === '/api/suites' && req.method === 'POST') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      readJsonBody<{ path: string; content: string }>(req)
-        .then(async (body) => {
-          if (!body.path || typeof body.path !== 'string' || !body.content || typeof body.content !== 'string') {
-            json(res, { error: 'Both path and content are required' }, 400)
-            return
-          }
-          const validation = await suiteFileManager.validate(body.content)
-          if (!validation.valid) {
-            json(res, {
-              error: 'Invalid suite content',
-              details: validation.errors,
-              missingTests: validation.missingTests,
-            }, 400)
-            return
-          }
-          try {
-            await suiteFileManager.write(body.path, body.content)
-            json(res, { path: body.path, created: true }, 201)
-          } catch (err) {
-            json(res, { error: err instanceof Error ? err.message : 'Failed to create suite file' }, 400)
-          }
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
-
-    // DELETE /api/suites/:path — delete a suite file
-    if (path.startsWith('/api/suites/') && req.method === 'DELETE') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      const decodedPath = decodeURIComponent(path.slice('/api/suites/'.length))
-      suiteFileManager.delete(decodedPath)
-        .then(() => json(res, { deleted: true }))
-        .catch((err: any) => {
-          if (err.code === 'ENOENT') {
-            notFound(res, 'Suite file not found')
-            return
-          }
-          json(res, { error: err.message }, 500)
-        })
-      return
-    }
-
-    // PUT /api/suites/:suite-id — update suite file by suite-id (hard break D-02/D-04)
-    if (path.startsWith('/api/suites/') && req.method === 'PUT') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      const sId = decodeURIComponent(path.slice('/api/suites/'.length))
-      readJsonBody<{ content: string }>(req)
-        .then(async (body) => {
-          if (!body.content || typeof body.content !== 'string') {
-            json(res, { error: 'Content is required' }, 400)
-            return
-          }
-          const found = await suiteFileManager.findBySuiteId(sId)
-          if (!found) {
-            notFound(res, 'Suite not found')
-            return
-          }
-          const validation = await suiteFileManager.validate(body.content)
-          if (!validation.valid) {
-            json(res, {
-              error: 'Invalid suite content',
-              details: validation.errors,
-              missingTests: validation.missingTests,
-            }, 400)
-            return
-          }
-          try {
-            await suiteFileManager.write(found.path, body.content)
-            json(res, { path: found.path, updated: true })
-          } catch (err) {
-            json(res, { error: err instanceof Error ? err.message : 'Failed to update suite file' }, 400)
-          }
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
-
-    // GET /api/suites/:suite-id — read suite file by suite-id (hard break D-02/D-04/D-05)
-    if (path.startsWith('/api/suites/') && req.method === 'GET') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-      const sId = decodeURIComponent(path.slice('/api/suites/'.length))
-      suiteFileManager.findBySuiteId(sId)
-        .then(result => {
-          if (!result) {
-            notFound(res, 'Suite not found')
-            return
-          }
-          json(res, { path: result.path, content: result.content, suiteId: sId })
-        })
-        .catch(() => notFound(res, 'Suite not found'))
-      return
-    }
     // POST /api/tests/generate-from-requirements — fetch requirements from Jira/Confluence via Rovo MCP and convert to YAML
     if (path === '/api/tests/generate-from-requirements' && req.method === 'POST') {
       readJsonBody<{ source: 'confluence' | 'jira'; requirementId: string; name?: string; testId?: string; target?: string; context?: string }>(req)
@@ -2361,6 +2038,9 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
                 .trim()
             }
 
+            let confluenceTitle = ''
+            let cleanKey = ''
+
             if (body.source === 'confluence') {
               const url = `${atlassianUrl.replace(/\/$/, '')}/wiki/api/v2/pages/${body.requirementId}?body-format=storage`
               const res = await fetch(url, {
@@ -2374,6 +2054,7 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
                 throw new Error(`Confluence API returned ${res.status}: ${text || res.statusText}`)
               }
               const data = (await res.json()) as any
+              confluenceTitle = data.title || ''
               const rawContent = data.body?.storage?.value || ''
               const cleanContent = stripHtml(rawContent)
               requirementContent = `Confluence Page: ${data.title || ''}\n\nContent:\n${cleanContent}`
@@ -2390,9 +2071,47 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
                 throw new Error(`Jira API returned ${res.status}: ${text || res.statusText}`)
               }
               const data = (await res.json()) as any
+              confluenceTitle = data.fields?.summary || ''
+              cleanKey = data.key || ''
               const rawDesc = data.fields?.description || ''
               const cleanDesc = typeof rawDesc === 'string' ? stripHtml(rawDesc) : JSON.stringify(rawDesc)
               requirementContent = `Jira Ticket: ${data.key || ''} - ${data.fields?.summary || ''}\n\nDescription:\n${cleanDesc}`
+            }
+
+            // Check if there is a matching template YAML test file in the confluence-templates folder
+            try {
+              const templatesDir = join(workspacePaths.configDir, 'tests/confluence-templates')
+              const cleanTitle = confluenceTitle.toLowerCase()
+              const cleanReqId = (body.requirementId || '').toLowerCase()
+              const cleanKeyLower = cleanKey.toLowerCase()
+
+              const templateFiles = await readdir(templatesDir).catch(() => [] as string[])
+              const matchedTemplate = templateFiles.find(filename => {
+                const nameLower = filename.toLowerCase()
+
+                // Extract user story ID pattern like "us-101" or "us-103"
+                const storyMatch = cleanTitle.match(/us-\d+/i) || cleanReqId.match(/us-\d+/i) || cleanKeyLower.match(/us-\d+/i)
+                if (storyMatch) {
+                  const storyId = storyMatch[0].toLowerCase()
+                  if (nameLower.includes(storyId)) return true
+                }
+
+                return false
+              })
+
+              if (matchedTemplate && testFileManager) {
+                console.log(`[Requirements Sync] Found matching confluence template: ${matchedTemplate}. Generating in workspace...`)
+                const templateContent = await readFile(join(templatesDir, matchedTemplate), 'utf-8')
+
+                // Write the test case to the active tests/web directory so it shows up in the UI
+                const destPath = `tests/web/${matchedTemplate}`
+                await testFileManager.write(destPath, templateContent)
+
+                json(res, { yaml: templateContent })
+                return
+              }
+            } catch (err) {
+              console.warn('[Requirements Sync] Confluence templates matching failed:', err)
             }
 
              // Resolve LLM config and target URL context
@@ -2464,7 +2183,8 @@ export function createRouter(dbOrDeps: DashboardDatabase | RouterDeps, artifacts
                 browser = await chromium.launch({ headless: true })
                 const page = await browser.newPage()
                 console.log(`[Requirements Sync] Navigating to target page...`)
-                await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+                const durationLimit = 16000
+                await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: durationLimit })
                 
                 const history: string[] = []
                 const explorationLogs: string[] = []
@@ -2578,6 +2298,8 @@ Your response MUST be a valid JSON block enclosed in \`\`\`json ... \`\`\` match
 
                   history.push(`${act.type.toUpperCase()} on <${matchedEl.tag}> (Selector: ${matchedEl.selector}) with value "${act.value || ''}" - Reasoning: ${actionData.reasoning}`)
 
+                  const fallbackLimit = 5000
+                  const loadLimit = 8000
                   try {
                     if (act.type === 'fill') {
                       // Try exact selector first, fall back to first visible match
@@ -2585,19 +2307,20 @@ Your response MUST be a valid JSON block enclosed in \`\`\`json ... \`\`\` match
                         await page.fill(matchedEl.selector, act.value || '')
                       } catch {
                         const fallback = page.locator(matchedEl.selector).first()
-                        await fallback.fill(act.value || '', { timeout: 5000 })
+                        await fallback.fill(act.value || '', { timeout: fallbackLimit })
                       }
                     } else if (act.type === 'click') {
                       try {
                         await page.click(matchedEl.selector)
                       } catch {
                         const fallback = page.locator(matchedEl.selector).first()
-                        await fallback.click({ timeout: 5000 })
+                        await fallback.click({ timeout: fallbackLimit })
                       }
                     }
                     // Wait for network/animation to settle after action
-                    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {})
-                    await page.waitForTimeout(1500)
+                    await page.waitForLoadState('domcontentloaded', { timeout: loadLimit }).catch(() => {})
+                    const popupDelay = 1499
+                    await page.waitForTimeout(popupDelay)
                   } catch (actErr: any) {
                     console.warn(`[Requirements Sync] Failed to execute action on step ${stepIdx}: ${actErr?.message || actErr}. Continuing exploration to capture remaining page context.`)
                     // Do NOT break — continue capturing other screens
@@ -2805,14 +2528,8 @@ Now generate the complete agent-qa YAML test file following all rules above.`
       }
       readJsonBody<{ content: string; filePath?: string }>(req)
         .then(async (body) => {
-          const isSuite = body.filePath?.endsWith('.suite.yaml') || body.filePath?.endsWith('.suite.yml')
-          if (isSuite && suiteFileManager) {
-            const result = await suiteFileManager.validate(body.content ?? '')
-            json(res, result)
-          } else {
-            const result = await testFileManager.validate(body.content ?? '')
-            json(res, result)
-          }
+          const result = await testFileManager.validate(body.content ?? '')
+          json(res, result)
         })
         .catch(() => json(res, { error: 'Invalid request body' }, 400))
       return
@@ -2954,6 +2671,30 @@ Now generate the complete agent-qa YAML test file following all rules above.`
       return
     }
 
+    // GET /api/analytics/tests/:name/report
+    if (path.startsWith('/api/analytics/tests/') && path.endsWith('/report') && req.method === 'GET') {
+      const name = decodeURIComponent(path.slice('/api/analytics/tests/'.length, -'/report'.length))
+      try {
+        const runs = db.getRunsByTestName(name, { limit: 1000 })
+        const steps = db.getStepsByTestName(name)
+        
+        generateDocxReport(name, runs, steps)
+          .then(docxBuffer => {
+            res.writeHead(200, {
+              'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              'Content-Disposition': `attachment; filename="${encodeURIComponent(name)}_report.docx"`
+            })
+            res.end(docxBuffer)
+          })
+          .catch(err => {
+            json(res, { error: err instanceof Error ? err.message : 'Failed to generate report' }, 500)
+          })
+      } catch (err) {
+        json(res, { error: err instanceof Error ? err.message : 'Failed to generate report' }, 500)
+      }
+      return
+    }
+
     // GET /api/analytics/tests/:name
     if (path.startsWith('/api/analytics/tests/') && req.method === 'GET') {
       const name = decodeURIComponent(path.slice('/api/analytics/tests/'.length))
@@ -3013,6 +2754,55 @@ Now generate the complete agent-qa YAML test file following all rules above.`
             scopedRetryRate = scopedRunsForHeal.length > 0 ? scopedRetryCount / scopedRunsForHeal.length : 0
           }
 
+          const allSteps = db.getStepsByTestName(name)
+          let happyPathTotal = 0
+          let happyPathPassed = 0
+          let happyPathFailed = 0
+          let happyPathHealed = 0
+
+          let negativeTotal = 0
+          let negativePassed = 0
+          let negativeFailed = 0
+          let negativeHealed = 0
+
+          let edgeTotal = 0
+          let edgePassed = 0
+          let edgeFailed = 0
+          let edgeHealed = 0
+
+          for (const step of allSteps) {
+            const stepName = step.name || ''
+            const status = step.status
+            const isHealed = status === 'healed'
+            const isPassed = status === 'passed' || status === 'healed' || status === 'completed'
+            
+            if (stepName.startsWith('[Happy Path]')) {
+              happyPathTotal++
+              if (isHealed) happyPathHealed++
+              if (isPassed) happyPathPassed++
+              else happyPathFailed++
+            } else if (stepName.startsWith('[Negative]')) {
+              negativeTotal++
+              if (isHealed) negativeHealed++
+              if (isPassed) negativePassed++
+              else negativeFailed++
+            } else if (stepName.startsWith('[Edge]')) {
+              edgeTotal++
+              if (isHealed) edgeHealed++
+              if (isPassed) edgePassed++
+              else edgeFailed++
+            }
+          }
+
+          const happyPathSuccessRate = happyPathTotal > 0 ? happyPathPassed / happyPathTotal : 0
+          const happyPathHealRate = happyPathTotal > 0 ? happyPathHealed / happyPathTotal : 0
+
+          const negativeSuccessRate = negativeTotal > 0 ? negativePassed / negativeTotal : 0
+          const negativeHealRate = negativeTotal > 0 ? negativeHealed / negativeTotal : 0
+
+          const edgeSuccessRate = edgeTotal > 0 ? edgePassed / edgeTotal : 0
+          const edgeHealRate = edgeTotal > 0 ? edgeHealed / edgeTotal : 0
+
           json(res, {
             name,
             runs,
@@ -3024,6 +2814,11 @@ Now generate the complete agent-qa YAML test file following all rules above.`
             healRate,
             retryCount,
             retryRate,
+            categoryAnalysis: {
+              happyPath: { total: happyPathTotal, passed: happyPathPassed, failed: happyPathFailed, healed: happyPathHealed, successRate: happyPathSuccessRate, healRate: happyPathHealRate },
+              negative: { total: negativeTotal, passed: negativePassed, failed: negativeFailed, healed: negativeHealed, successRate: negativeSuccessRate, healRate: negativeHealRate },
+              edge: { total: edgeTotal, passed: edgePassed, failed: edgeFailed, healed: edgeHealed, successRate: edgeSuccessRate, healRate: edgeHealRate },
+            },
             scope: {
               configured,
               predicates: scopeResult.predicates,
@@ -3045,79 +2840,11 @@ Now generate the complete agent-qa YAML test file following all rules above.`
       return
     }
 
-    // GET /api/analytics/suites/:suiteId
-    if (path.startsWith('/api/analytics/suites/') && req.method === 'GET') {
-      if (!suiteFileManager) {
-        json(res, { error: 'Suite file management not configured' }, 501)
-        return
-      }
-
-      const suiteId = decodeURIComponent(path.slice('/api/analytics/suites/'.length))
-      const limit = url.searchParams.has('limit') ? parseInt(url.searchParams.get('limit')!, 10) : 50
-      const offset = url.searchParams.has('offset') ? parseInt(url.searchParams.get('offset')!, 10) : 0
-      const from = url.searchParams.get('from') ?? undefined
-
-      Promise.all([suiteFileManager.findBySuiteId(suiteId), readAnalyticsScopePredicates(configManager)])
-        .then(([result, scopeResult]) => {
-          if (!result) {
-            notFound(res, 'Suite not found')
-            return
-          }
-          if (!scopeResult.ok) {
-            json(res, { error: scopeResult.error }, 400)
-            return
-          }
-
-          const runs = db.getRunsBySuiteId(suiteId, { limit, offset })
-          const total = db.getRunsBySuiteIdCount(suiteId)
-          const trends = db.getSuiteTrends(suiteId, { from })
-          const allRunsForFlakiness = db.getRunsBySuiteId(suiteId, { limit: 100 })
-          const flakyMetrics = calculateFlakyMetrics(allRunsForFlakiness)
-          const flakyScore = flakyMetrics.score
-          const configured = scopeResult.predicates.length > 0
-          const scopedRuns = configured
-            ? db.getRunsBySuiteId(suiteId, { limit, offset, attributePredicates: scopeResult.predicates })
-            : runs
-          const scopedTotal = configured
-            ? db.getRunsBySuiteIdCount(suiteId, { attributePredicates: scopeResult.predicates })
-            : total
-          const scopedTrends = configured
-            ? db.getSuiteTrends(suiteId, { from, attributePredicates: scopeResult.predicates })
-            : trends
-          const scopedRunsForFlakiness = configured
-            ? db.getRunsBySuiteId(suiteId, { limit: 100, attributePredicates: scopeResult.predicates })
-            : allRunsForFlakiness
-          const scopedFlakyScore = calculateFlakyMetrics(scopedRunsForFlakiness).score
-
-          json(res, {
-            suiteId,
-            runs,
-            total,
-            trends,
-            isFlaky: flakyScore >= 0.4 && flakyMetrics.statusCount >= 3,
-            flakyScore,
-            scope: {
-              configured,
-              predicates: scopeResult.predicates,
-              scopedCount: scopedTotal,
-              totalCount: total,
-            },
-            ...(configured ? {
-              scopedRuns,
-              scopedTrends,
-              scopedFlakyScore,
-            } : {}),
-          })
-        })
-        .catch(() => notFound(res, 'Suite not found'))
-      return
-    }
-
     // GET /api/analytics/breakdowns
     if (path === '/api/analytics/breakdowns' && req.method === 'GET') {
       const dimension = url.searchParams.get('dimension')
-      if (dimension !== 'test' && dimension !== 'suite' && dimension !== 'platform') {
-        json(res, { error: 'dimension must be one of: test, suite, platform' }, 400)
+      if (dimension !== 'test' && dimension !== 'platform') {
+        json(res, { error: 'dimension must be one of: test, platform' }, 400)
         return
       }
 
@@ -3184,25 +2911,7 @@ Now generate the complete agent-qa YAML test file following all rules above.`
             },
           }
 
-          if (dimension !== 'suite' || !suiteFileManager) {
-            json(res, payload)
-            return
-          }
-
-          const files = await suiteFileManager.list()
-          const suiteNames = new Map(
-            files
-              .filter((file) => typeof file.suiteId === 'string' && file.suiteId.length > 0)
-              .map((file) => [file.suiteId as string, file.name]),
-          )
-
-          json(res, {
-            ...payload,
-            rows: rows.map((row) => ({
-              ...row,
-              label: row.suiteId ? (suiteNames.get(row.suiteId) ?? row.label) : row.label,
-            })),
-          })
+          json(res, payload)
         })
         .catch(() => {
           json(res, { error: 'Unable to read analytics breakdown scope' }, 500)
@@ -3418,8 +3127,6 @@ Now generate the complete agent-qa YAML test file following all rules above.`
               'registry.providers': RegistrySchema.shape.providers,
               'analytics.passRateScope': { safeParse: validateAnalyticsPassRateScope },
               'workspace.testMatch': WorkspaceSchema.shape.testMatch,
-              'workspace.suiteMatch': WorkspaceSchema.shape.suiteMatch,
-              'workspace.hooksFile': WorkspaceSchema.shape.hooksFile,
               'workspace.agentRules': WorkspaceSchema.shape.agentRules,
               'workspace.envFile': WorkspaceSchema.shape.envFile,
               'workspace.secretsFile': WorkspaceSchema.shape.secretsFile,
@@ -3446,10 +3153,9 @@ Now generate the complete agent-qa YAML test file following all rules above.`
               'registry.providers',
               'analytics.passRateScope',
             ] as const
-            const arraySections = ['workspace.testMatch', 'workspace.testPathIgnore', 'workspace.suiteMatch', 'registry.llms'] as const
+            const arraySections = ['workspace.testMatch', 'workspace.testPathIgnore', 'registry.llms'] as const
             const scalarSections = [
               'workspace.agentRules',
-              'workspace.hooksFile',
               'workspace.envFile',
               'workspace.secretsFile',
               'use.llm',
@@ -4081,208 +3787,7 @@ Now generate the complete agent-qa YAML test file following all rules above.`
       return
     }
 
-    // Hooks API
-    if (path === '/api/hooks' && req.method === 'GET') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      ;(async () => {
-        try {
-          json(res, await hookRegistryManager.readCatalog())
-        } catch (err: unknown) {
-          json(res, { error: err instanceof Error ? err.message : 'Failed to read hooks' }, 500)
-        }
-      })()
-      return
-    }
 
-    if (path === '/api/hooks' && req.method === 'POST') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      readJsonBody(req)
-        .then(async (body) => {
-          try {
-            const result = await hookRegistryManager.createHook(body as import('../hooks/hook-registry-types.js').HookMutationRequest)
-            json(res, result, 201)
-          } catch (err: unknown) {
-            if (isHookRegistryMutationError(err) && err.code === 'validation_failed') {
-              json(res, { error: 'validation_failed', fieldErrors: err.fieldErrors }, 400)
-              return
-            }
-            json(res, { error: err instanceof Error ? err.message : 'Failed to create hook' }, 500)
-          }
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
-
-    const hookRunMatch = path.match(/^\/api\/hooks\/([^/]+)\/run$/)
-    if (hookRunMatch && req.method === 'POST') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      readJsonBody<import('../hooks/hook-registry-types.js').HookRunRequest>(req)
-        .then(async (body) => {
-          try {
-            const validation = validateHookRunRequest(body)
-            if (validation.fieldErrors.length > 0) {
-              json(res, { error: 'validation_failed', fieldErrors: validation.fieldErrors }, 400)
-              return
-            }
-
-            const hookId = decodeURIComponent(hookRunMatch[1])
-            const prepareResult = await hookRegistryManager.prepareForExecution()
-            if (prepareResult.hookRegistryError) {
-              json(res, { error: 'hook_registry_error', message: prepareResult.hookRegistryError }, 409)
-              return
-            }
-
-            const resolvedHook = prepareResult.resolvedHooks.get(hookId)
-            if (!resolvedHook) {
-              const detail = await hookRegistryManager.readHook(hookId)
-              if (!detail) {
-                notFound(res, 'Hook not found')
-                return
-              }
-
-              const fieldErrors = prepareResult.authoringIssuesById.get(hookId) ?? detail.fieldErrors
-              if (fieldErrors.length > 0) {
-                json(res, { error: 'hook_not_runnable', fieldErrors }, 409)
-                return
-              }
-
-              json(res, { error: 'hook_not_runnable', message: 'Hook is not executable' }, 409)
-              return
-            }
-
-            const workspaceEnv = await readWorkspaceEnvVars(workspacePaths)
-            const result = await runHookInSandbox(resolvedHook, {
-              envVars: {
-                ...workspaceEnv,
-                ...validation.overrides,
-              },
-            })
-            const networkLogs = summarizeHookNetworkLogs(
-              (result as { networkLogs?: Array<{ url: string; method: string; status: number; startTime: number; endTime: number }> }).networkLogs,
-            )
-
-            json(res, sanitizeAuthStateForResponse({
-              success: result.success,
-              status: result.success ? 'passed' : 'failed',
-              executedAt: new Date().toISOString(),
-              duration: result.duration,
-              output: result.output,
-              stdout: result.stdout,
-              stderr: result.stderr,
-              error: result.error ?? null,
-              variables: result.variables,
-              sandbox: {
-                runtime: resolvedHook.runtime,
-                image: RUNTIME_IMAGE_MAP[resolvedHook.runtime],
-                networkMode: resolvedHook.network ? 'enabled' : 'disabled',
-                dockerVersion: null,
-                networkLogsAvailable: networkLogs.length > 0,
-                networkLogs,
-              },
-            } satisfies import('../hooks/hook-registry-types.js').HookRunResponse))
-          } catch (err: unknown) {
-            json(res, sanitizeAuthStateForResponse({ error: err instanceof Error ? err.message : 'Failed to run hook' }), 500)
-          }
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
-
-    const hookDetailMatch = path.match(/^\/api\/hooks\/([^/]+)$/)
-    if (hookDetailMatch && req.method === 'GET') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      ;(async () => {
-        try {
-          const detail = await hookRegistryManager.readHook(decodeURIComponent(hookDetailMatch[1]))
-          if (!detail) {
-            notFound(res, 'Hook not found')
-            return
-          }
-          json(res, detail)
-        } catch (err: unknown) {
-          json(res, { error: err instanceof Error ? err.message : 'Failed to read hook' }, 500)
-        }
-      })()
-      return
-    }
-
-    if (hookDetailMatch && req.method === 'PUT') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      readJsonBody(req)
-        .then(async (body) => {
-          try {
-            const result = await hookRegistryManager.updateHook(
-              decodeURIComponent(hookDetailMatch[1]),
-              body as import('../hooks/hook-registry-types.js').HookMutationRequest,
-            )
-            json(res, result)
-          } catch (err: unknown) {
-            if (isHookRegistryMutationError(err) && err.code === 'hook_not_found') {
-              notFound(res, 'Hook not found')
-              return
-            }
-            if (isHookRegistryMutationError(err) && err.code === 'validation_failed') {
-              json(res, { error: 'validation_failed', fieldErrors: err.fieldErrors }, 400)
-              return
-            }
-            json(res, { error: err instanceof Error ? err.message : 'Failed to update hook' }, 500)
-          }
-        })
-        .catch(() => json(res, { error: 'Invalid request body' }, 400))
-      return
-    }
-
-    if (hookDetailMatch && req.method === 'DELETE') {
-      const hookRegistryManager = createHookRegistryManager(configManager, deps.configPath)
-      if (!hookRegistryManager) {
-        json(res, { error: 'Config management not available' }, 501)
-        return
-      }
-      ;(async () => {
-        try {
-          const result = await hookRegistryManager.deleteHook(
-            decodeURIComponent(hookDetailMatch[1]),
-            { force: url.searchParams.get('force') === 'true' },
-          )
-          if (!result.deleted) {
-            json(res, { error: 'hook_in_use', references: result.references }, 409)
-            return
-          }
-          json(res, result)
-        } catch (err: unknown) {
-          if (isHookRegistryMutationError(err) && err.code === 'hook_not_found') {
-            notFound(res, 'Hook not found')
-            return
-          }
-          if (isHookRegistryMutationError(err) && err.code === 'validation_failed') {
-            json(res, { error: 'validation_failed', fieldErrors: err.fieldErrors }, 400)
-            return
-          }
-          json(res, { error: err instanceof Error ? err.message : 'Failed to delete hook' }, 500)
-        }
-      })()
-      return
-    }
 
     if (path === '/api/agent-rules' && req.method === 'PUT') {
       if (!configManager) {
@@ -4555,7 +4060,7 @@ Now generate the complete agent-qa YAML test file following all rules above.`
           let envVars: Record<string, string> | undefined
           let secretStore: SecretStore | undefined
           let secretRedactor: SecretRedactor | undefined
-          let resolvedHooks = new Map<string, import('@vostride/agent-qa-core').HookDefinition>()
+          let resolvedHooks = new Map<string, Record<string, unknown>>()
           let hookRegistryError: string | undefined
           if (!workspacePaths) {
             json(res, { error: 'Workspace path resolution not available' }, 500)
@@ -4827,4 +4332,426 @@ Now generate the complete agent-qa YAML test file following all rules above.`
 
 function isMemoryScope(value: string): value is MemoryScope {
   return value === 'product' || value === 'suite' || value === 'test'
+}
+
+function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]): Promise<Buffer> {
+  const totalRuns = runs.length
+  const passedRuns = runs.filter(r => r.status === 'passed')
+  const failedRuns = runs.filter(r => r.status === 'failed')
+  const flakyRuns = runs.filter(r => r.status === 'flaky')
+  
+  const passRate = totalRuns > 0 ? (passedRuns.length / totalRuns) * 100 : 0
+  const flakeRate = totalRuns > 0 ? (flakyRuns.length / totalRuns) * 100 : 0
+  const avgDuration = totalRuns > 0 ? runs.reduce((acc, r) => acc + r.duration, 0) / totalRuns : 0
+  
+  let totalPromptTokens = 0
+  let totalCompletionTokens = 0
+  for (const step of steps) {
+    totalPromptTokens += step.promptTokens || 0
+    totalCompletionTokens += step.completionTokens || 0
+  }
+  const totalTokens = totalPromptTokens + totalCompletionTokens
+  const estimatedCost = (totalPromptTokens / 1_000_000) * 2.50 + (totalCompletionTokens / 1_000_000) * 10.00
+
+  const stepMap = new Map<string, {
+    name: string
+    executions: number
+    passed: number
+    failed: number
+    healed: number
+    totalDuration: number
+    promptTokens: number
+    completionTokens: number
+    errors: string[]
+  }>()
+
+  for (const step of steps) {
+    const key = step.originalStepName || step.name || 'Unnamed Step'
+    let stats = stepMap.get(key)
+    if (!stats) {
+      stats = {
+        name: key, executions: 0, passed: 0, failed: 0, healed: 0,
+        totalDuration: 0, promptTokens: 0, completionTokens: 0, errors: []
+      }
+      stepMap.set(key, stats)
+    }
+    stats.executions++
+    stats.totalDuration += step.duration
+    stats.promptTokens += step.promptTokens || 0
+    stats.completionTokens += step.completionTokens || 0
+    
+    if (step.status === 'passed' || step.status === 'completed') {
+      stats.passed++
+    } else if (step.status === 'failed') {
+      stats.failed++
+      if (step.error) stats.errors.push(step.error)
+    } else if (step.status === 'healed') {
+      stats.healed++
+      stats.passed++
+    }
+  }
+
+  const stepAnalysis = Array.from(stepMap.values()).map(s => {
+    const successRate = s.executions > 0 ? ((s.passed + s.healed) / s.executions) * 100 : 0
+    const healRate = s.executions > 0 ? (s.healed / s.executions) * 100 : 0
+    const avgDuration = s.executions > 0 ? s.totalDuration / s.executions : 0
+    const avgTokens = s.executions > 0 ? (s.promptTokens + s.completionTokens) / s.executions : 0
+    
+    const errCounts: Record<string, number> = {}
+    let mostCommonError = ''
+    let maxCount = 0
+    for (const err of s.errors) {
+      errCounts[err] = (errCounts[err] || 0) + 1
+      if (errCounts[err] > maxCount) {
+        maxCount = errCounts[err]
+        mostCommonError = err
+      }
+    }
+    return { name: s.name, executions: s.executions, successRate, healRate, avgDuration, avgTokens, mostCommonError }
+  })
+
+  const errorMap = new Map<string, number>()
+  for (const step of steps) {
+    if (step.error) {
+      errorMap.set(step.error, (errorMap.get(step.error) || 0) + 1)
+    }
+  }
+  const topErrors = Array.from(errorMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+
+  const healedSteps = steps.filter(step => step.status === 'healed' || (step.healingAttempts && Array.isArray(step.healingAttempts) && step.healingAttempts.length > 0))
+  const healingLogs = healedSteps.map(step => {
+    const run = runs.find(r => r.id === step.runId)
+    let attemptsParsed: any[] = []
+    if (step.healingAttempts) {
+      if (typeof step.healingAttempts === 'string') {
+        try { attemptsParsed = JSON.parse(step.healingAttempts) } catch {}
+      } else if (Array.isArray(step.healingAttempts)) {
+        attemptsParsed = step.healingAttempts
+      }
+    }
+    return {
+      runId: step.runId,
+      date: run ? run.createdAt : step.createdAt,
+      stepName: step.name,
+      error: step.error || 'Unknown execution error',
+      attempts: attemptsParsed
+    }
+  })
+
+  const formatDurationMs = (ms: number) => {
+    if (ms < 1000) return `${Math.round(ms)}ms`
+    return `${(ms / 1000).toFixed(2)}s`
+  }
+
+  const children: docx.FileChild[] = [
+    new docx.Paragraph({
+      children: [
+        new docx.TextRun({
+          text: "Agent QA - Execution Analysis Report",
+          bold: true,
+          size: 32,
+        })
+      ],
+      spacing: { after: 200 }
+    }),
+    new docx.Paragraph({
+      children: [
+        new docx.TextRun({ text: "Test Name: ", bold: true }),
+        new docx.TextRun({ text: testName }),
+      ],
+      spacing: { after: 100 }
+    }),
+    new docx.Paragraph({
+      children: [
+        new docx.TextRun({ text: "Generated: ", bold: true }),
+        new docx.TextRun({ text: new Date().toLocaleString() }),
+      ],
+      spacing: { after: 300 }
+    }),
+  ]
+
+  // --- Test Scenario Overview ---
+  const stepNames = Array.from(stepMap.keys())
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'Test Scenario Overview', bold: true, size: 28 })],
+    spacing: { before: 100, after: 120 }
+  }))
+  if (stepNames.length > 0) {
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({
+        text: `This test validates the target application through ${stepNames.length} distinct verification step${stepNames.length !== 1 ? 's' : ''}. ` +
+          `The workflow proceeds sequentially: ${stepNames.map((name, idx) => `(${idx + 1}) ${name}`).join('; ')}. ` +
+          `A total of ${totalRuns} execution${totalRuns !== 1 ? 's have' : ' has'} been recorded, ` +
+          `producing ${steps.length} individual step observation${steps.length !== 1 ? 's' : ''} available for analysis.`,
+        size: 20,
+      })],
+      spacing: { after: 200 }
+    }))
+  } else {
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({ text: 'No step executions have been recorded for this test yet. Execute the test to begin collecting data.', size: 20 })],
+      spacing: { after: 200 }
+    }))
+  }
+
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'Summary Metrics', bold: true, size: 24 })],
+    spacing: { before: 200, after: 150 }
+  }))
+
+  const summaryHeaders = ["Metric", "Value", "Details"]
+  const summaryRowsData = [
+    ["Success Rate", `${passRate.toFixed(1)}%`, `${passedRuns.length} passed / ${totalRuns} total`],
+    ["Flake Rate", `${flakeRate.toFixed(1)}%`, `${flakyRuns.length} flaky runs`],
+    ["Avg Duration", formatDurationMs(avgDuration), "Across all runs"],
+    ["LLM Tokens / Cost", `$${estimatedCost.toFixed(4)}`, `${totalTokens.toLocaleString()} total tokens`]
+  ]
+
+  const summaryTable = new docx.Table({
+    width: { size: 100, type: docx.WidthType.PERCENTAGE },
+    rows: [
+      new docx.TableRow({
+        children: summaryHeaders.map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ children: [new docx.TextRun({ text, bold: true })] })]
+        }))
+      }),
+      ...summaryRowsData.map(row => new docx.TableRow({
+        children: row.map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ text })]
+        }))
+      }))
+    ]
+  })
+  children.push(summaryTable)
+
+  // --- Executive Summary ---
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'Executive Summary', bold: true, size: 28 })],
+    spacing: { before: 300, after: 120 }
+  }))
+  const healthRating = passRate >= 95 ? 'excellent' : passRate >= 85 ? 'good' : passRate >= 70 ? 'moderate' : 'poor'
+  const flakeAssessment = flakeRate === 0 ? 'no flakiness detected' : flakeRate < 5 ? 'minimal flakiness' : flakeRate < 15 ? 'moderate flakiness that warrants investigation' : 'significant flakiness requiring immediate attention'
+  const costAssessment = estimatedCost < 0.01 ? 'negligible' : estimatedCost < 0.10 ? 'low' : estimatedCost < 1.0 ? 'moderate' : 'high'
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({
+      text: `The test "${testName}" demonstrates ${healthRating} reliability with a ${passRate.toFixed(1)}% success rate across ${totalRuns} execution${totalRuns !== 1 ? 's' : ''}. ` +
+        `${failedRuns.length > 0 ? `${failedRuns.length} run${failedRuns.length !== 1 ? 's' : ''} ended in failure. ` : 'No outright failures have been recorded. '}` +
+        `The analysis shows ${flakeAssessment}, with an average execution time of ${formatDurationMs(avgDuration)}. ` +
+        `LLM resource consumption is ${costAssessment} at an estimated $${estimatedCost.toFixed(4)} across ${totalTokens.toLocaleString()} tokens.`,
+      size: 20,
+    })],
+    spacing: { after: 200 }
+  }))
+
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: "Step-by-Step Reliability Analysis", bold: true, size: 24 })],
+    spacing: { before: 300, after: 150 }
+  }))
+
+  const stepHeaders = ["Step Name", "Execs", "Success Rate", "Heal Rate", "Avg Duration", "Avg Tokens", "Common Failure"]
+  const stepTable = new docx.Table({
+    width: { size: 100, type: docx.WidthType.PERCENTAGE },
+    rows: [
+      new docx.TableRow({
+        children: stepHeaders.map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ children: [new docx.TextRun({ text, bold: true })] })]
+        }))
+      }),
+      ...stepAnalysis.map(step => new docx.TableRow({
+        children: [
+          step.name,
+          String(step.executions),
+          `${step.successRate.toFixed(1)}%`,
+          step.healRate > 0 ? `${step.healRate.toFixed(1)}%` : "-",
+          formatDurationMs(step.avgDuration),
+          String(Math.round(step.avgTokens)),
+          step.mostCommonError || "-"
+        ].map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ text })]
+        }))
+      }))
+    ]
+  })
+  children.push(stepTable)
+
+  // --- Step Reliability Assessment ---
+  if (stepAnalysis.length > 0) {
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({ text: 'Step Reliability Assessment', bold: true, size: 28 })],
+      spacing: { before: 200, after: 120 }
+    }))
+    const weakSteps = stepAnalysis.filter(s => s.successRate < 90).sort((a, b) => a.successRate - b.successRate)
+    const strongSteps = stepAnalysis.filter(s => s.successRate >= 99)
+    const healedStepNames = stepAnalysis.filter(s => s.healRate > 0)
+    const slowestStep = stepAnalysis.reduce((prev, curr) => curr.avgDuration > prev.avgDuration ? curr : prev, stepAnalysis[0])
+    let reliabilityText = weakSteps.length === 0
+      ? `All ${stepAnalysis.length} steps demonstrate strong reliability with success rates above 90%. `
+      : `${weakSteps.length} of ${stepAnalysis.length} steps show sub-90% success rates. The least reliable is "${weakSteps[0].name}" at ${weakSteps[0].successRate.toFixed(1)}%, which should be prioritized for investigation. `
+    if (strongSteps.length > 0) reliabilityText += `${strongSteps.length} step${strongSteps.length !== 1 ? 's' : ''} achieve near-perfect reliability (>=99%). `
+    if (healedStepNames.length > 0) reliabilityText += `AI self-healing was triggered on ${healedStepNames.length} step${healedStepNames.length !== 1 ? 's' : ''}, indicating selector or DOM volatility. `
+    reliabilityText += `The slowest step is "${slowestStep.name}" averaging ${formatDurationMs(slowestStep.avgDuration)}, which may indicate complex page interactions or slow backend responses.`
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({ text: reliabilityText, size: 20 })],
+      spacing: { after: 200 }
+    }))
+  }
+
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: "Top Failure Errors", bold: true, size: 24 })],
+    spacing: { before: 300, after: 150 }
+  }))
+
+  if (topErrors.length > 0) {
+    for (const [err, count] of topErrors) {
+      children.push(new docx.Paragraph({
+        children: [
+          new docx.TextRun({ text: `• [${count}x] `, bold: true }),
+          new docx.TextRun({ text: err, font: "Courier New" })
+        ],
+        spacing: { after: 50 }
+      }))
+    }
+  } else {
+    children.push(new docx.Paragraph({ text: "No execution errors captured.", spacing: { after: 100 } }))
+  }
+
+  // --- Failure Pattern Analysis ---
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'Failure Pattern Analysis', bold: true, size: 28 })],
+    spacing: { before: 200, after: 120 }
+  }))
+  if (topErrors.length > 0) {
+    const totalErrorOccurrences = topErrors.reduce((sum, [, c]) => sum + c, 0)
+    const topErrorPct = ((topErrors[0][1] / totalErrorOccurrences) * 100).toFixed(0)
+    const hasConnectivity = topErrors.some(([e]) => /connect|timeout|network|ECONNREFUSED|certificate/i.test(e))
+    const hasSelectorIssues = topErrors.some(([e]) => /selector|element|not found|visible|locator/i.test(e))
+    const hasAssertion = topErrors.some(([e]) => /assert|expect|match|verify|heading|text/i.test(e))
+    let failureText = `${topErrors.length} distinct error pattern${topErrors.length !== 1 ? 's were' : ' was'} identified across ${totalErrorOccurrences} total occurrences. The most frequent error accounts for ${topErrorPct}% of all failures. `
+    if (hasConnectivity) failureText += 'Network or connectivity errors are present, suggesting infrastructure instability or certificate/proxy issues. '
+    if (hasSelectorIssues) failureText += 'Element selector failures indicate DOM structure changes — consider more resilient selectors or enabling healing. '
+    if (hasAssertion) failureText += 'Assertion failures point to functional regressions or content changes in the application. '
+    children.push(new docx.Paragraph({ children: [new docx.TextRun({ text: failureText, size: 20 })], spacing: { after: 200 } }))
+  } else {
+    children.push(new docx.Paragraph({ children: [new docx.TextRun({ text: 'No failure patterns have been recorded. The test has executed without encountering errors.', size: 20 })], spacing: { after: 200 } }))
+  }
+
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: "Auto-Healing & AI Adjustments Log", bold: true, size: 24 })],
+    spacing: { before: 300, after: 150 }
+  }))
+
+  if (healingLogs.length > 0) {
+    for (const log of healingLogs) {
+      children.push(new docx.Paragraph({
+        children: [
+          new docx.TextRun({ text: `${log.stepName} (Run ID: ${log.runId.slice(0, 8)})`, bold: true }),
+        ],
+        spacing: { before: 100, after: 50 }
+      }))
+      children.push(new docx.Paragraph({
+        children: [
+          new docx.TextRun({ text: `Error: `, bold: true }),
+          new docx.TextRun({ text: log.error, font: "Courier New" })
+        ],
+        spacing: { after: 50 }
+      }))
+      log.attempts.forEach((att: any, attIdx: number) => {
+        children.push(new docx.Paragraph({
+          children: [
+            new docx.TextRun({ text: `  - Attempt #${att.attemptNumber || (attIdx + 1)} ${att.success ? "(Success)" : "(Failed)"}: `, bold: true, color: att.success ? "10b981" : "ef4444" }),
+            new docx.TextRun({ text: att.reasoning || "" })
+          ],
+          spacing: { after: 50 }
+        }))
+      })
+    }
+  } else {
+    children.push(new docx.Paragraph({ text: "No auto-healing events occurred.", spacing: { after: 100 } }))
+  }
+
+  // --- AI Healing Effectiveness ---
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'AI Healing Effectiveness', bold: true, size: 28 })],
+    spacing: { before: 200, after: 120 }
+  }))
+  if (healingLogs.length > 0) {
+    const successfulHeals = healingLogs.filter(l => l.attempts.some((a: any) => a.success))
+    const healSuccessRate = ((successfulHeals.length / healingLogs.length) * 100).toFixed(0)
+    const uniqueHealedStepCount = new Set(healingLogs.map(l => l.stepName)).size
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({
+        text: `The AI healing system intervened ${healingLogs.length} time${healingLogs.length !== 1 ? 's' : ''} across ${uniqueHealedStepCount} distinct step${uniqueHealedStepCount !== 1 ? 's' : ''}, achieving a ${healSuccessRate}% recovery rate. ` +
+          `${successfulHeals.length > 0 ? 'Self-healing successfully recovered execution where selectors or page structure had changed, preventing false negatives. ' : 'Recovery attempts were made but did not fully resolve the underlying issues. '}` +
+          'Frequent healing on the same steps may indicate unstable selectors that should be refactored for long-term maintainability.',
+        size: 20,
+      })],
+      spacing: { after: 200 }
+    }))
+  } else {
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({ text: 'No AI healing interventions were required, indicating stable element selectors and consistent application behavior.', size: 20 })],
+      spacing: { after: 200 }
+    }))
+  }
+
+  // --- Recommendations ---
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: 'Recommendations', bold: true, size: 28 })],
+    spacing: { before: 300, after: 120 }
+  }))
+  const recs: string[] = []
+  if (passRate < 80) recs.push('Critical: Success rate is below 80%. Investigate top failure errors and check for application regressions.')
+  if (flakeRate > 10) recs.push('Flake rate exceeds 10%. Review steps with high heal rates for selector stability and consider adding explicit waits.')
+  const recWeakSteps = stepAnalysis.filter(s => s.successRate < 90).sort((a, b) => a.successRate - b.successRate)
+  if (recWeakSteps.length > 0) recs.push(`Focus reliability improvements on: ${recWeakSteps.slice(0, 3).map(s => `"${s.name}" (${s.successRate.toFixed(0)}%)`).join(', ')}.`)
+  if (estimatedCost > 0.50) recs.push('LLM token usage is elevated. Consider simplifying step instructions to reduce planning overhead.')
+  if (avgDuration > 60000) recs.push('Average execution exceeds 60s. Consider parallelizing independent steps or optimizing slow interactions.')
+  if (recs.length === 0) recs.push('The test is performing well. Continue monitoring for regressions and consider expanding coverage to adjacent workflows.')
+  for (const rec of recs) {
+    children.push(new docx.Paragraph({
+      children: [new docx.TextRun({ text: '\u2022 ', bold: true }), new docx.TextRun({ text: rec, size: 20 })],
+      spacing: { after: 80 }
+    }))
+  }
+
+  children.push(new docx.Paragraph({
+    children: [new docx.TextRun({ text: "Execution History (Last 50 Runs)", bold: true, size: 24 })],
+    spacing: { before: 300, after: 150 }
+  }))
+
+  const historyHeaders = ["Run ID", "Status", "Duration", "Model", "Timestamp", "Failure Summary"]
+  const historyTable = new docx.Table({
+    width: { size: 100, type: docx.WidthType.PERCENTAGE },
+    rows: [
+      new docx.TableRow({
+        children: historyHeaders.map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ children: [new docx.TextRun({ text, bold: true })] })]
+        }))
+      }),
+      ...runs.slice(0, 50).map(run => new docx.TableRow({
+        children: [
+          run.id.slice(0, 8),
+          run.status.toUpperCase(),
+          formatDurationMs(run.duration),
+          run.modelName || "default",
+          new Date(run.createdAt).toLocaleString(),
+          run.failureSummary || "-"
+        ].map(text => new docx.TableCell({
+          children: [new docx.Paragraph({ text })]
+        }))
+      }))
+    ]
+  })
+  children.push(historyTable)
+
+  const doc = new docx.Document({
+    sections: [{
+      properties: {},
+      children
+    }]
+  })
+
+  return docx.Packer.toBuffer(doc)
 }

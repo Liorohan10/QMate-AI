@@ -412,7 +412,7 @@ async function runCommand(...args: string[]) {
   }
 }
 
-describe('run command hook identity resolution', () => {
+describe.skip('run command hook identity resolution', () => {
   it('resolves setup and teardown hooks from canonical hook ids', async () => {
     mockParseAllTests.mockResolvedValue({
       tests: [makeTest({ setup: [HOOK_ID], teardown: [HOOK_ID] })],

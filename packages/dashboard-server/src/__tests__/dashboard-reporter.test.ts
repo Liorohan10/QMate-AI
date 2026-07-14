@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { DashboardReporter } from '../reporter/dashboard-reporter.js'
 import { DashboardDatabase } from '../db/database.js'
 import { generateFailureSummary, SecretRedactor, SecretStore } from '@vostride/agent-qa-core'
-import type { SuiteDefinition, TestDefinition, StepResult, TestResult, RunSummary } from '@vostride/agent-qa-core'
+import type { TestDefinition, StepResult, TestResult, RunSummary } from '@vostride/agent-qa-core'
 
 vi.mock('node:fs/promises', () => ({
   copyFile: vi.fn().mockResolvedValue(undefined),
@@ -348,7 +348,7 @@ describe('DashboardReporter', () => {
       target: 'web',
       tests: [{ test: 'tests/memory.yaml', id: 't_memory' }],
       ['suite-id']: 'suite-memory',
-    } as unknown as SuiteDefinition, {
+    } as any, {
       runId: parentRunId,
       artifact: {
         kind: 'suite-parent',
@@ -414,7 +414,7 @@ describe('DashboardReporter', () => {
       target: 'web',
       tests: [{ test: 'tests/test-a.yaml', id: 't_test-a' }],
       ['suite-id']: 'suite-smoke',
-    } as unknown as SuiteDefinition)
+    } as any)
 
     const suiteRuns = db.getRuns()
     expect(suiteRuns).toHaveLength(1)
@@ -467,7 +467,7 @@ describe('DashboardReporter', () => {
       target: 'web',
       tests: [{ test: 'tests/test-a.yaml', id: 't_test-a' }],
       ['suite-id']: 'suite-context',
-    } as unknown as SuiteDefinition, { runId })
+    } as any, { runId })
 
     const runs = db.getRuns()
     expect(runs).toHaveLength(1)
@@ -525,7 +525,7 @@ describe('DashboardReporter', () => {
       target: 'web',
       tests: [{ test: 'tests/test-a.yaml', id: 't_test-a' }],
       ['suite-id']: 'suite-attrs',
-    } as unknown as SuiteDefinition, {
+    } as any, {
       runId: parentRunId,
       artifact: { metadata: { attributes } },
     } as any)
@@ -549,7 +549,7 @@ describe('DashboardReporter', () => {
       target: 'web',
       tests: [{ test: 'tests/test-a.yaml', id: 't_test-a' }],
       ['suite-id']: 'suite-context',
-    } as unknown as SuiteDefinition, { runId: parentRunId })
+    } as any, { runId: parentRunId })
     await reporter.onTestStart!(makeTest('Context Child'), 'tests/test-a.yaml', {
       runId: childRunId,
       parentRunId,
@@ -570,7 +570,7 @@ describe('DashboardReporter', () => {
         { test: 'tests/test-b.yaml', id: 't_test-b' },
       ],
       ['suite-id']: 'suite-smoke',
-    } as unknown as SuiteDefinition, {
+    } as any, {
       artifact: {
         kind: 'suite-parent',
         source: {

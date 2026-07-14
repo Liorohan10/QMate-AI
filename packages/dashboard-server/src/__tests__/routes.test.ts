@@ -18,7 +18,6 @@ import {
 import { ConfigManager } from '../config/index.js'
 import { DashboardDatabase } from '../db/database.js'
 import { createRouter } from '../server/routes.js'
-import { SuiteFileManager } from '../tests/suite-file-manager.js'
 import { extractTestFileMetadata, TestFileManager } from '../tests/test-file-manager.js'
 import { generateText } from 'ai'
 
@@ -352,15 +351,12 @@ function createWorkspacePaths(
   workspaceDir: string,
   options: {
     testMatch?: string[]
-    suiteMatch?: string[]
   } = {},
 ): ResolvedWorkspacePaths {
   return resolveWorkspacePaths({
     config: {
       workspace: {
         testMatch: options.testMatch ?? ['**/*.yaml'],
-        suiteMatch: options.suiteMatch ?? ['**/*.suite.yaml'],
-        hooksFile: 'runtime/hooks/custom-hooks.yaml',
         agentRules: 'agent-rules.md',
         envFile: '.env',
         secretsFile: '.env.secrets.local',
@@ -379,21 +375,18 @@ function createWorkspaceManagers(
 ): {
   workspacePaths: ResolvedWorkspacePaths
   testFileManager: TestFileManager
-  suiteFileManager: SuiteFileManager
 } {
   const workspacePaths = createWorkspacePaths(workspaceDir, options)
   const testFileManager = new TestFileManager(workspacePaths)
   return {
     workspacePaths,
     testFileManager,
-    suiteFileManager: new SuiteFileManager(workspacePaths, testFileManager),
   }
 }
 
 async function createSuiteWorkspace(): Promise<{
   testsDir: string
   workspacePaths: ResolvedWorkspacePaths
-  suiteFileManager: SuiteFileManager
   testFileManager: TestFileManager
 }> {
   const dir = await mkdtemp(join(tmpdir(), 'agent-qa-suite-routes-'))
@@ -403,21 +396,8 @@ async function createSuiteWorkspace(): Promise<{
     ['name: T', `test-id: ${SEEDED_TEST_ID}`, 'target: web', 'steps:', '  - Open the seeded test', ''].join('\n'),
     'utf-8',
   )
-  await writeFile(
-    join(dir, 'a.suite.yaml'),
-    [
-      `suite-id: ${SEEDED_SUITE_ID}`,
-      'name: Seed',
-      'target: web',
-      'tests:',
-      '  - test: t.yaml',
-      `    id: ${SEEDED_TEST_ID}`,
-      '',
-    ].join('\n'),
-    'utf-8',
-  )
-  const { workspacePaths, testFileManager, suiteFileManager } = createWorkspaceManagers(dir)
-  return { testsDir: dir, workspacePaths, suiteFileManager, testFileManager }
+  const { workspacePaths, testFileManager } = createWorkspaceManagers(dir)
+  return { testsDir: dir, workspacePaths, testFileManager }
 }
 
 async function createDashboardWorkspace(): Promise<{
@@ -988,8 +968,8 @@ describe('API Routes', () => {
 
   describe('POST /api/tests/validate', () => {
     it('returns the existing { valid, errors } success shape for canonical test content', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
+      const { workspacePaths, testFileManager } = await createSuiteWorkspace()
+      router = createRouter({ db: db as any, workspacePaths, testFileManager })
 
       const res = await invokeRoute('/api/tests/validate', {
         method: 'POST',
@@ -1011,8 +991,8 @@ describe('API Routes', () => {
     })
 
     it('keeps the response shape when shared validation rejects legacy test ids', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
+      const { workspacePaths, testFileManager } = await createSuiteWorkspace()
+      router = createRouter({ db: db as any, workspacePaths, testFileManager })
 
       const res = await invokeRoute('/api/tests/validate', {
         method: 'POST',
@@ -1040,61 +1020,7 @@ describe('API Routes', () => {
     })
   })
 
-  describe('POST /api/suites/validate', () => {
-    it('returns the existing { valid, errors } success shape for canonical suite content', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
 
-      const res = await invokeRoute('/api/suites/validate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: [
-            `suite-id: ${SEEDED_SUITE_ID}`,
-            'name: Smoke suite',
-            'target: web',
-            'tests:',
-            '  - test: t.yaml',
-            `    id: ${SEEDED_TEST_ID}`,
-            '',
-          ].join('\n'),
-        }),
-      })
-
-      expect(res.status).toBe(200)
-      expect(JSON.parse(res.body)).toEqual({ valid: true, errors: [] })
-    })
-
-    it('keeps the response shape when shared validation rejects legacy suite ids', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
-
-      const res = await invokeRoute('/api/suites/validate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: [
-            `suite-id: ${LEGACY_SUITE_ID}`,
-            'name: Legacy suite',
-            'target: web',
-            'tests:',
-            '  - test: t.yaml',
-            `    id: ${LEGACY_TEST_ID}`,
-            '',
-          ].join('\n'),
-        }),
-      })
-
-      expect(res.status).toBe(200)
-      const data = JSON.parse(res.body) as {
-        valid: boolean
-        errors: Array<{ message: string }>
-      }
-      expect(data.valid).toBe(false)
-      expect(Array.isArray(data.errors)).toBe(true)
-      expect(data.errors[0]?.message).toContain('Suite ID must be s_ followed by 10 id-agent words')
-    })
-  })
 
   describe('DELETE /api/tests/:t_id', () => {
     it('deletes a test file by test id for the tests-page bottom toolbar', async () => {
@@ -1536,80 +1462,7 @@ describe('API Routes', () => {
       expect(enqueue).not.toHaveBeenCalled()
     })
 
-    it('normalizes queued suite files against the suite root instead of testsDir', async () => {
-      const workspaceDir = await mkdtemp(join(tmpdir(), 'agent-qa-queue-suite-root-'))
-      const testsDir = join(workspaceDir, 'tests')
-      const suitesDir = join(workspaceDir, 'suites')
-      tempDirs.push(workspaceDir)
-      await mkdir(testsDir, { recursive: true })
-      await mkdir(suitesDir, { recursive: true })
-      await writeFile(
-        join(suitesDir, 'sample-basic.suite.yaml'),
-        [`suite-id: ${SEEDED_SUITE_ID}`, 'name: Sample Basic', 'tests: []', ''].join('\n'),
-        'utf-8',
-      )
-      const enqueue = vi.fn().mockReturnValue('run-queue-suite')
-      const queueDb = {
-        ...(db as any),
-        getPendingRuns: vi.fn(() => [{ id: 'run-queue-suite' }]),
-      }
-      router = createRouter({
-        db: queueDb as any,
-        ...createWorkspaceManagers(workspaceDir, {
-          testMatch: ['tests/**/*.yaml'],
-          suiteMatch: ['suites/**/*.suite.yaml'],
-        }),
-        jobQueue: {
-          enqueue,
-        } as any,
-      })
 
-      const res = await invokeRoute('/api/queue/enqueue', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Queued suite', file: 'suites/sample-basic.suite.yaml' }),
-      })
-
-      expect(res.status).toBe(202)
-      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Queued suite',
-        filePath: 'suites/sample-basic.suite.yaml',
-        kind: 'suite-parent',
-        metadata: expect.objectContaining({
-          args: [join(workspaceDir, 'suites', 'sample-basic.suite.yaml')],
-          isSuite: true,
-        }),
-      }))
-      expect(enqueue.mock.calls[0][0].metadata.args[0]).not.toContain(`${sep}tests${sep}suites${sep}`)
-    })
-
-    it('rejects queued suite paths outside configured suite patterns', async () => {
-      const workspaceDir = await mkdtemp(join(tmpdir(), 'agent-qa-queue-suite-contained-'))
-      const outsideDir = await mkdtemp(join(tmpdir(), 'agent-qa-queue-suite-outside-'))
-      tempDirs.push(workspaceDir, outsideDir)
-      const testsDir = join(workspaceDir, 'tests')
-      await mkdir(testsDir, { recursive: true })
-      const enqueue = vi.fn().mockReturnValue('run-queue-outside-suite')
-      router = createRouter({
-        db: db as any,
-        ...createWorkspaceManagers(workspaceDir, {
-          testMatch: ['tests/**/*.yaml'],
-          suiteMatch: ['suites/**/*.suite.yaml'],
-        }),
-        jobQueue: {
-          enqueue,
-        } as any,
-      })
-
-      const res = await invokeRoute('/api/queue/enqueue', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Outside queued suite', file: join(outsideDir, 'outside.suite.yaml') }),
-      })
-
-      expect(res.status).toBe(400)
-      expect(enqueue).not.toHaveBeenCalled()
-    })
   })
 
   describe('POST /api/runs/trigger', () => {
@@ -1623,7 +1476,6 @@ describe('API Routes', () => {
       configManager: ConfigManager
       configPath: string
       testFileManager: TestFileManager
-      suiteFileManager: SuiteFileManager
     }> {
       const testsDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-timeout-'))
       tempDirs.push(testsDir)
@@ -1635,8 +1487,8 @@ describe('API Routes', () => {
         '    navigation: 30s',
         '',
       ].join('\n'))
-      const { workspacePaths, testFileManager, suiteFileManager } = createWorkspaceManagers(testsDir)
-      return { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager }
+      const { workspacePaths, testFileManager } = createWorkspaceManagers(testsDir)
+      return { testsDir, workspacePaths, configManager, configPath, testFileManager }
     }
 
     async function createTriggerParallelWorkspace(configParallel = true): Promise<{
@@ -1645,7 +1497,6 @@ describe('API Routes', () => {
       configManager: ConfigManager
       configPath: string
       testFileManager: TestFileManager
-      suiteFileManager: SuiteFileManager
     }> {
       const testsDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-parallel-'))
       tempDirs.push(testsDir)
@@ -1654,8 +1505,8 @@ describe('API Routes', () => {
         `  parallel: ${configParallel ? 'true' : 'false'}`,
         '',
       ].join('\n'))
-      const { workspacePaths, testFileManager, suiteFileManager } = createWorkspaceManagers(testsDir)
-      return { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager }
+      const { workspacePaths, testFileManager } = createWorkspaceManagers(testsDir)
+      return { testsDir, workspacePaths, configManager, configPath, testFileManager }
     }
 
     it('resolves test-viewer paths through configured workspace.testMatch', async () => {
@@ -1734,7 +1585,7 @@ describe('API Routes', () => {
     })
 
     it('uses global use.parallel for dashboard-triggered test files and ignores client parallel', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerParallelWorkspace(true)
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerParallelWorkspace(true)
       await writeFile(
         join(testsDir, 'global-parallel.yaml'),
         [`test-id: ${SEEDED_TEST_ID}`, 'name: Global parallel', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
@@ -1745,7 +1596,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -1765,7 +1615,7 @@ describe('API Routes', () => {
     })
 
     it('lets test YAML use.parallel false override global use.parallel true', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerParallelWorkspace(true)
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerParallelWorkspace(true)
       await writeFile(
         join(testsDir, 'serial-local.yaml'),
         [
@@ -1785,7 +1635,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -1805,7 +1654,7 @@ describe('API Routes', () => {
     })
 
     it('uses global use.parallel for pattern-triggered dashboard runs', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerParallelWorkspace(true)
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerParallelWorkspace(true)
       await mkdir(join(testsDir, 'web'), { recursive: true })
       await writeFile(join(testsDir, 'web/pattern-parallel.yaml'), 'name: Pattern parallel\nsteps: []\n', 'utf-8')
       const enqueue = vi.fn().mockReturnValue('run-pattern-parallel')
@@ -1813,7 +1662,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -1953,164 +1801,7 @@ describe('API Routes', () => {
       expect(enqueue).not.toHaveBeenCalled()
     })
 
-    it('rejects suite files outside the configured suite root before enqueueing', async () => {
-      const testsDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-contained-'))
-      const outsideDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-outside-'))
-      tempDirs.push(testsDir, outsideDir)
-      const enqueue = vi.fn().mockReturnValue('run-outside-suite')
-      router = createRouter({
-        db: db as any,
-        ...createWorkspaceManagers(testsDir),
-        jobQueue: {
-          enqueue,
-        } as any,
-      })
 
-      const res = await invokeRoute('/api/runs/trigger', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ file: join(outsideDir, 'outside.suite.yaml'), local: true }),
-      })
-
-      expect(res.status).toBe(400)
-      expect(enqueue).not.toHaveBeenCalled()
-    })
-
-    it('runs suite files from the suite root without nesting them under testsDir', async () => {
-      const workspaceDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-suite-root-'))
-      const testsDir = join(workspaceDir, 'tests')
-      const suitesDir = join(workspaceDir, 'suites')
-      tempDirs.push(workspaceDir)
-      await mkdir(testsDir, { recursive: true })
-      await mkdir(suitesDir, { recursive: true })
-      const { configManager, configPath } = await createConfigWorkspace([
-        'use:',
-        '  timeout:',
-        '    step: 30s',
-        '    test: 20m',
-        '    navigation: 30s',
-        '',
-      ].join('\n'))
-      const { workspacePaths, testFileManager, suiteFileManager } = createWorkspaceManagers(workspaceDir, {
-        testMatch: ['tests/**/*.yaml'],
-        suiteMatch: ['suites/**/*.suite.yaml'],
-      })
-      await writeFile(
-        join(testsDir, 'suite-member.yaml'),
-        [`test-id: ${SEEDED_TEST_ID}`, 'name: Suite member', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
-        'utf-8',
-      )
-      await writeFile(
-        join(suitesDir, 'slow.suite.yaml'),
-        [
-          `suite-id: ${SEEDED_SUITE_ID}`,
-          'name: Workspace suite',
-          'target: web',
-          'use:',
-          '  timeout:',
-          '    test: 90m',
-          'tests:',
-          '  - test: tests/suite-member.yaml',
-          `    id: ${SEEDED_TEST_ID}`,
-          '',
-        ].join('\n'),
-        'utf-8',
-      )
-      const enqueue = vi.fn().mockReturnValue('run-suite-root')
-      router = createRouter({
-        db: db as any,
-        workspacePaths,
-        testFileManager,
-        suiteFileManager,
-        configManager,
-        configPath,
-        jobQueue: { enqueue } as any,
-      })
-
-      const res = await invokeRoute('/api/runs/trigger', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ file: 'suites/slow.suite.yaml', local: true }),
-      })
-
-      expect(res.status).toBe(202)
-      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Workspace suite',
-        filePath: 'suites/slow.suite.yaml',
-        kind: 'suite-parent',
-        metadata: expect.objectContaining({
-          args: [join(workspaceDir, 'suites', 'slow.suite.yaml')],
-          isSuite: true,
-          timeout: 5_460_000,
-          timeoutSource: 'suite.use.timeout.test',
-          timeoutBaseMs: 5_400_000,
-          timeoutBufferMs: 60_000,
-        }),
-      }))
-      expect(enqueue.mock.calls[0][0].metadata.args[0]).not.toContain(`${sep}tests${sep}suites${sep}`)
-    })
-
-    it('uses suite YAML use.parallel for dashboard-triggered suite parent jobs', async () => {
-      const workspaceDir = await mkdtemp(join(tmpdir(), 'agent-qa-trigger-suite-parallel-'))
-      const testsDir = join(workspaceDir, 'tests')
-      const suitesDir = join(workspaceDir, 'suites')
-      tempDirs.push(workspaceDir)
-      await mkdir(testsDir, { recursive: true })
-      await mkdir(suitesDir, { recursive: true })
-      const { configManager, configPath } = await createConfigWorkspace([
-        'use:',
-        '  parallel: false',
-        '',
-      ].join('\n'))
-      const { workspacePaths, testFileManager, suiteFileManager } = createWorkspaceManagers(workspaceDir, {
-        testMatch: ['tests/**/*.yaml'],
-        suiteMatch: ['suites/**/*.suite.yaml'],
-      })
-      await writeFile(
-        join(testsDir, 'suite-member.yaml'),
-        [`test-id: ${SEEDED_TEST_ID}`, 'name: Suite member', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
-        'utf-8',
-      )
-      await writeFile(
-        join(suitesDir, 'parallel.suite.yaml'),
-        [
-          `suite-id: ${SEEDED_SUITE_ID}`,
-          'name: Parallel suite',
-          'target: web',
-          'use:',
-          '  parallel: true',
-          'tests:',
-          '  - test: tests/suite-member.yaml',
-          `    id: ${SEEDED_TEST_ID}`,
-          '',
-        ].join('\n'),
-        'utf-8',
-      )
-      const enqueue = vi.fn().mockReturnValue('run-suite-parallel')
-      router = createRouter({
-        db: db as any,
-        workspacePaths,
-        testFileManager,
-        suiteFileManager,
-        configManager,
-        configPath,
-        jobQueue: { enqueue } as any,
-      })
-
-      const res = await invokeRoute('/api/runs/trigger', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ file: 'suites/parallel.suite.yaml', local: true }),
-      })
-
-      expect(res.status).toBe(202)
-      expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Parallel suite',
-        filePath: 'suites/parallel.suite.yaml',
-        kind: 'suite-parent',
-        parallel: true,
-      }))
-    })
 
     it('passes cache and memory overrides through to the queued args and labels BrowserStack explicitly', async () => {
       const testsDir = join(tmpdir(), `agent-qa-trigger-tests-${randomUUID()}`, 'e2e-specs')
@@ -2195,7 +1886,7 @@ describe('API Routes', () => {
     })
 
     it('derives process timeout metadata from test YAML before config fallback', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerTimeoutWorkspace('20m')
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerTimeoutWorkspace('20m')
       await writeFile(
         join(testsDir, 'slow-local.yaml'),
         [
@@ -2216,7 +1907,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -2237,57 +1927,10 @@ describe('API Routes', () => {
       })
     })
 
-    it('derives process timeout metadata from suite YAML before config fallback', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerTimeoutWorkspace('20m')
-      await writeFile(
-        join(testsDir, 'suite-member.yaml'),
-        [`test-id: ${SEEDED_TEST_ID}`, 'name: Suite member', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
-        'utf-8',
-      )
-      await writeFile(
-        join(testsDir, 'slow.suite.yaml'),
-        [
-          `suite-id: ${SEEDED_SUITE_ID}`,
-          'name: Slow suite',
-          'target: web',
-          'use:',
-          '  timeout:',
-          '    test: 90m',
-          'tests:',
-          '  - test: suite-member.yaml',
-          `    id: ${SEEDED_TEST_ID}`,
-          '',
-        ].join('\n'),
-        'utf-8',
-      )
-      const enqueue = vi.fn().mockReturnValue('run-timeout-suite')
-      router = createRouter({
-        db: db as any,
-        workspacePaths,
-        testFileManager,
-        suiteFileManager,
-        configManager,
-        configPath,
-        jobQueue: { enqueue } as any,
-      })
 
-      const res = await invokeRoute('/api/runs/trigger', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ file: 'slow.suite.yaml', local: true }),
-      })
-
-      expect(res.status).toBe(202)
-      expect(queuedMetadata(enqueue)).toMatchObject({
-        timeout: 5_460_000,
-        timeoutSource: 'suite.use.timeout.test',
-        timeoutBaseMs: 5_400_000,
-        timeoutBufferMs: 60_000,
-      })
-    })
 
     it('falls back to project config timeout when test YAML has no timeout', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerTimeoutWorkspace('45m')
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerTimeoutWorkspace('45m')
       await writeFile(
         join(testsDir, 'config-timeout.yaml'),
         [`test-id: ${SEEDED_TEST_ID}`, 'name: Config timeout', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
@@ -2298,7 +1941,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -2320,14 +1962,13 @@ describe('API Routes', () => {
     })
 
     it('falls back to project config timeout when draft YAML cannot be parsed', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerTimeoutWorkspace('30m')
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerTimeoutWorkspace('30m')
       await writeFile(join(testsDir, 'draft.yaml'), ['name: Draft', 'use: [', ''].join('\n'), 'utf-8')
       const enqueue = vi.fn().mockReturnValue('run-timeout-draft')
       router = createRouter({
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -2349,7 +1990,7 @@ describe('API Routes', () => {
     })
 
     it('ignores client-provided timeout fields when enqueueing trusted metadata', async () => {
-      const { testsDir, workspacePaths, configManager, configPath, testFileManager, suiteFileManager } = await createTriggerTimeoutWorkspace('15m')
+      const { testsDir, workspacePaths, configManager, configPath, testFileManager } = await createTriggerTimeoutWorkspace('15m')
       await writeFile(
         join(testsDir, 'trusted-timeout.yaml'),
         [`test-id: ${SEEDED_TEST_ID}`, 'name: Trusted timeout', 'target: web', 'steps:', '  - Open the app', ''].join('\n'),
@@ -2360,7 +2001,6 @@ describe('API Routes', () => {
         db: db as any,
         workspacePaths,
         testFileManager,
-        suiteFileManager,
         configManager,
         configPath,
         jobQueue: { enqueue } as any,
@@ -2540,9 +2180,6 @@ describe('API Routes', () => {
         'workspace:',
         '  testMatch:',
         '    - tests/**/*.yaml',
-        '  suiteMatch:',
-        '    - suites/**/*.suite.yaml',
-        '  hooksFile: hooks.yaml',
         '  agentRules: agent-rules.md',
         '  envFile: .env',
         '  secretsFile: .env.secrets.local',
@@ -2629,114 +2266,5 @@ describe('API Routes', () => {
     })
   })
 
-  describe('Suite file API by suite-id', () => {
-    it('GET /api/suites/:suite-id returns 404 for unknown id', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
 
-      const res = await invokeRoute(`/api/suites/${encodeURIComponent(UNKNOWN_SUITE_ID)}`)
-      expect(res.status).toBe(404)
-      const data = JSON.parse(res.body) as any
-      expect(data.error).toBe('Suite not found')
-    })
-
-    it('GET /api/suites/:suite-id returns 200 with {path, content, suiteId} on hit', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
-
-      const res = await invokeRoute(`/api/suites/${encodeURIComponent(SEEDED_SUITE_ID)}`)
-      expect(res.status).toBe(200)
-      const data = JSON.parse(res.body) as any
-      expect(data.suiteId).toBe(SEEDED_SUITE_ID)
-      expect(data.path).toBe('a.suite.yaml')
-      expect(typeof data.content).toBe('string')
-      expect(data.content).toContain('name: Seed')
-    })
-
-    it('PUT /api/suites/:suite-id returns 404 for unknown id without writing', async () => {
-      const { testsDir, workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
-
-      const res = await invokeRoute(`/api/suites/${encodeURIComponent(UNKNOWN_SUITE_ID)}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: [
-            `suite-id: ${UNKNOWN_SUITE_ID}`,
-            'name: Nope',
-            'target: web',
-            'tests:',
-            '  - test: t.yaml',
-            `    id: ${SEEDED_TEST_ID}`,
-            '',
-          ].join('\n'),
-        }),
-      })
-
-      expect(res.status).toBe(404)
-      const data = JSON.parse(res.body) as any
-      expect(data.error).toBe('Suite not found')
-
-      // Verify no new file was written (tests dir still has only the seeded entries)
-      const { readdir } = await import('node:fs/promises')
-      const entries = await readdir(testsDir)
-      expect(entries.sort()).toEqual(['a.suite.yaml', 't.yaml'])
-    })
-
-    it('PUT /api/suites/:suite-id updates suite by id and writes to internal path', async () => {
-      const { testsDir, workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
-
-      const newContent = [
-        `suite-id: ${SEEDED_SUITE_ID}`,
-        'name: Seed Updated',
-        'target: web',
-        'tests:',
-        '  - test: t.yaml',
-        `    id: ${SEEDED_TEST_ID}`,
-        '',
-      ].join('\n')
-
-      const res = await invokeRoute(`/api/suites/${encodeURIComponent(SEEDED_SUITE_ID)}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: newContent }),
-      })
-
-      expect(res.status).toBe(200)
-      const data = JSON.parse(res.body) as any
-      expect(data.path).toBe('a.suite.yaml')
-      expect(data.updated).toBe(true)
-
-      const { readFile } = await import('node:fs/promises')
-      const onDisk = await readFile(join(testsDir, 'a.suite.yaml'), 'utf-8')
-      expect(onDisk).toContain('name: Seed Updated')
-    })
-
-    it('PUT /api/suites/:suite-id returns 400 for invalid suite content', async () => {
-      const { workspacePaths, suiteFileManager, testFileManager } = await createSuiteWorkspace()
-      router = createRouter({ db: db as any, workspacePaths, suiteFileManager, testFileManager })
-
-      // Missing required `name` field
-      const invalidContent = [
-        `suite-id: ${SEEDED_SUITE_ID}`,
-        'target: web',
-        'tests:',
-        '  - test: t.yaml',
-        `    id: ${SEEDED_TEST_ID}`,
-        '',
-      ].join('\n')
-
-      const res = await invokeRoute(`/api/suites/${encodeURIComponent(SEEDED_SUITE_ID)}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: invalidContent }),
-      })
-
-      expect(res.status).toBe(400)
-      const data = JSON.parse(res.body) as any
-      expect(data.error).toBe('Invalid suite content')
-      expect(Array.isArray(data.details)).toBe(true)
-    })
-  })
 })

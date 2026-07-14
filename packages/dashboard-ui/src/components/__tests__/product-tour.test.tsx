@@ -156,7 +156,7 @@ vi.mock('@/components/page-skeleton', () => ({
   EditorSkeleton: () => <div data-testid="editor-skeleton" />,
 }))
 
-const allowedRoutes = ['/runs', '/tests', '/hooks', '/suites', '/memory', '/config'] as const
+const allowedRoutes = ['/runs', '/tests', '/memory', '/config'] as const
 const excludedRoutes = [
   '/runs/r_123',
   '/runs/r_123/live',
@@ -445,11 +445,6 @@ function productTourHighlight() {
   return container?.querySelector('[data-testid="product-tour-highlight"]') as HTMLDivElement | null
 }
 
-function githubNudgeLink() {
-  return Array.from(container?.querySelectorAll<HTMLAnchorElement>('a') ?? []).find(
-    (link) => link.textContent?.trim() === 'View on GitHub',
-  )
-}
 
 function expectDialogBottomRight() {
   const tourDialog = dialog() as HTMLElement | null
@@ -534,7 +529,7 @@ describe('AppLayout product tour integration', () => {
     expect(dialog()).not.toBeNull()
     expect(dialog()?.getAttribute('aria-modal')).toBe('false')
     expectDialogBottomRight()
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -586,7 +581,7 @@ describe('ProductTourProvider auto-start behavior', () => {
 
     expect(dialog()).not.toBeNull()
     expect(dialog()?.getAttribute('aria-modal')).toBe('false')
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(container?.querySelector('[data-testid="active-step"]')?.textContent).toBe('intro')
   })
 
@@ -615,7 +610,7 @@ describe('ProductTourProvider persisted controls', () => {
 
     await clickElement('[data-testid="sidebar-tour-launch"]')
 
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -631,7 +626,7 @@ describe('ProductTourProvider persisted controls', () => {
 
     await clickElement('[data-testid="command-tour-launch"]')
 
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -646,7 +641,7 @@ describe('ProductTourProvider persisted controls', () => {
     await clickElement('[data-testid="restart-tour"]')
 
     const state = readProductTourStateCookie()
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(state).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -721,7 +716,7 @@ describe('ProductTourProvider persisted controls', () => {
     })
     await flushAsyncWork()
 
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -886,8 +881,6 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     await clickButton('Next')
     await clickButton('Next')
     await clickButton('Next')
-    await clickButton('Next')
-    await clickButton('Next')
     await act(async () => {
       vi.runOnlyPendingTimers()
     })
@@ -1047,47 +1040,6 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     expect(document.cookie).not.toContain('run-generated-pass')
   })
 
-  it('keeps the GitHub nudge hidden before run detail records a successful value moment', async () => {
-    appHarness.fetchTestFiles.mockResolvedValue({
-      files: [
-        {
-          path: 'tests/example-pass.yaml',
-          name: 'Example passing test',
-          testId: 'example-generated-id',
-          targetName: null,
-          platform: 'web',
-          modified: '2026-05-24T16:00:00.000Z',
-        },
-      ],
-    })
-
-    await renderTour({
-      path: '/runs',
-      children: (
-        <div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-test-run-action">
-            Run control
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-live-run-status">
-            Live run status
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-run-detail-reasoning">
-            Run detail reasoning
-          </div>
-        </div>
-      ),
-    })
-
-    await advanceTourToRunDetail()
-
-    expect(textContent()).not.toContain('If agent-qa helped')
-    expect(githubNudgeLink()).toBeUndefined()
-
-    await clickButton('Done')
-
-    expectNoDialog()
-    expect(readProductTourStateCookie()?.completedAt).toBe(fixedNow.toISOString())
-  })
 
   it('keeps run detail status recording idempotent for context-object consumers', async () => {
     await renderTour({
@@ -1107,105 +1059,6 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     expect(renderCount).toBeLessThanOrEqual(3)
   })
 
-  it.each([
-    ['passed', 'record-run-detail-passed'],
-    ['healed', 'record-run-detail-healed'],
-  ])('shows the modest GitHub nudge after a %s run detail value moment', async (_status, buttonId) => {
-    appHarness.fetchTestFiles.mockResolvedValue({
-      files: [
-        {
-          path: 'tests/example-pass.yaml',
-          name: 'Example passing test',
-          testId: 'example-generated-id',
-          targetName: null,
-          platform: 'web',
-          modified: '2026-05-24T16:00:00.000Z',
-        },
-      ],
-    })
-
-    await renderTour({
-      path: '/runs',
-      children: (
-        <div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-test-run-action">
-            Run control
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-live-run-status">
-            Live run status
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-run-detail-reasoning">
-            Run detail reasoning
-          </div>
-        </div>
-      ),
-    })
-
-    await advanceTourToRunDetail()
-    await clickElement(`[data-testid="${buttonId}"]`)
-    await clickButton('Next')
-
-    const link = githubNudgeLink()
-
-    expect(container?.querySelector('[data-testid="active-step"]')?.textContent).toBe(
-      'github-nudge',
-    )
-    expect(dialog()?.getAttribute('aria-modal')).toBe('false')
-    expectDialogBottomRight()
-    expect(dialog()?.textContent ?? '').toContain('If agent-qa helped')
-    expect(dialog()?.textContent ?? '').toContain(
-      'If agent-qa helped, consider starring it on GitHub.',
-    )
-    expect(link?.getAttribute('href')).toBe('https://github.com/vostride/agent-qa')
-    expect(link?.getAttribute('href')).not.toContain('?')
-    expect(document.cookie).not.toContain('run-generated-pass')
-    expectNoPrivateTourCopy(textContent())
-  })
-
-  it.each([
-    ['failed', 'record-run-detail-failed'],
-    ['cancelled', 'record-run-detail-cancelled'],
-    ['flaky', 'record-run-detail-flaky'],
-    ['unknown', 'record-run-detail-unknown'],
-  ])('skips the GitHub nudge after a %s run detail status', async (_status, buttonId) => {
-    appHarness.fetchTestFiles.mockResolvedValue({
-      files: [
-        {
-          path: 'tests/example-pass.yaml',
-          name: 'Example passing test',
-          testId: 'example-generated-id',
-          targetName: null,
-          platform: 'web',
-          modified: '2026-05-24T16:00:00.000Z',
-        },
-      ],
-    })
-
-    await renderTour({
-      path: '/runs',
-      children: (
-        <div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-test-run-action">
-            Run control
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-live-run-status">
-            Live run status
-          </div>
-          <div ref={makeMeasurableAnchor} data-tour-id="tour-run-detail-reasoning">
-            Run detail reasoning
-          </div>
-        </div>
-      ),
-    })
-
-    await advanceTourToRunDetail()
-    await clickElement(`[data-testid="${buttonId}"]`)
-    await clickButton('Done')
-
-    expectNoDialog()
-    expect(readProductTourStateCookie()?.completedAt).toBe(fixedNow.toISOString())
-    expect(githubNudgeLink()).toBeUndefined()
-  })
 
   it('falls back to Runs guidance when a started run id is unavailable', async () => {
     appHarness.fetchTestFiles.mockResolvedValue({
@@ -1262,8 +1115,6 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     await clickButton('Next')
     await clickButton('Next')
     await clickButton('Next')
-    await clickButton('Next')
-    await clickButton('Next')
     await act(async () => {
       vi.runOnlyPendingTimers()
     })
@@ -1274,7 +1125,7 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
       'example-missing',
     )
     expect(dialog()?.textContent ?? '').toContain(
-      'agent-qa init normally creates Example passing test',
+      'Titan-QA init normally creates Example passing test',
     )
   })
 
@@ -1284,7 +1135,7 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     await renderTour({ path: '/runs' })
 
     expect(appHarness.fetchTestFiles).toHaveBeenCalledTimes(1)
-    expect(textContent()).toContain('Welcome to agent-qa')
+    expect(textContent()).toContain('Welcome to Titan-QA')
 
     cleanupRoot()
     clearTourCookie()

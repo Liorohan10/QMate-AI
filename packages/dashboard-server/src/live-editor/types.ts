@@ -2,7 +2,6 @@ import type {
   ConsoleLogEntry,
   NetworkLogEntry,
   StepAnnotation,
-  HookDefinition,
   ModelConfig,
   SecretRedactor,
   SecretStore,
@@ -207,7 +206,7 @@ export interface LiveSessionConfig {
   secretRedactor?: SecretRedactor
   setupHooks?: string[]
   teardownHooks?: string[]
-  resolvedHooks?: Map<string, HookDefinition>
+  resolvedHooks?: Map<string, Record<string, unknown>>
   hookRegistryError?: string
   url?: string
   headless?: boolean

@@ -12,7 +12,7 @@ import type {
   RunSummary,
   SuiteSummary,
 } from '../reporter/types.js'
-import type { SuiteDefinition } from '../suite/types.js'
+
 import type { StepResult, TestResult, TokenUsage } from '../types/result.js'
 import type { TestDefinition } from '../types/test.js'
 import { buildAnalyticsEvent, type AnalyticsEventProperties, type AnalyticsSurface } from './events.js'
@@ -156,7 +156,7 @@ function readTestId(test: TestDefinition, context?: RunArtifactReporterContext):
   return readString(readArtifactSource(context)?.testId)
 }
 
-function readSuiteId(suite: SuiteDefinition, context?: RunArtifactReporterContext): string | undefined {
+function readSuiteId(suite: Record<string, unknown>, context?: RunArtifactReporterContext): string | undefined {
   const fromSuite = readString((suite as RecordLike)['suite-id'])
   if (fromSuite) return fromSuite
   return readString(readArtifactSource(context)?.suiteId)
@@ -348,7 +348,7 @@ export class AnalyticsRunReporter implements Reporter {
     })
   }
 
-  async onSuiteStart(suite: SuiteDefinition, context?: RunArtifactReporterContext): Promise<void> {
+  async onSuiteStart(suite: Record<string, unknown>, context?: RunArtifactReporterContext): Promise<void> {
     if (this.disabled) return
     const runId = context?.runId ?? readString(context?.artifact?.runtime?.runId)
     if (!runId) return

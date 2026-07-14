@@ -683,6 +683,21 @@ export interface AnalyticsScope {
   totalCount: number
 }
 
+export interface CategoryStats {
+  total: number
+  passed: number
+  failed: number
+  healed: number
+  successRate: number
+  healRate: number
+}
+
+export interface CategoryAnalysis {
+  happyPath: CategoryStats
+  negative: CategoryStats
+  edge: CategoryStats
+}
+
 export interface TestAnalyticsDetail {
   name: string
   runs: RunRow[]
@@ -694,6 +709,7 @@ export interface TestAnalyticsDetail {
   healRate: number
   retryCount: number
   retryRate: number
+  categoryAnalysis?: CategoryAnalysis
   scope?: AnalyticsScope
   scopedTrends?: TestTrends
   scopedFlakyScore?: number

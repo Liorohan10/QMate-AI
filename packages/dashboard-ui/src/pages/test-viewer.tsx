@@ -404,6 +404,30 @@ export default function TestViewerPage() {
     }
   }
 
+  const handleDownloadReport = async () => {
+    if (!testName) return
+    try {
+      const response = await fetch(`/api/analytics/tests/${encodeURIComponent(testName)}/report`)
+      if (!response.ok) {
+        throw new Error('Failed to generate report')
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${testName}_Execution_Report.docx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success("Execution report downloaded successfully")
+    } catch (err) {
+      toast.error(
+        `Failed to download report: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
   const editRoute = routes.testEdit(testId)
   const liveRoute = routes.testEditLive(testId)
 
@@ -566,6 +590,7 @@ export default function TestViewerPage() {
           onSettingsOpen={() => {}}
           shortcutsOpen={shortcutsOpen}
           onToggleShortcuts={() => setShortcutsOpen(prev => !prev)}
+          onDownloadReport={handleDownloadReport}
         />
 
         <Tabs
@@ -690,6 +715,105 @@ export default function TestViewerPage() {
                     </div>
                   </InsightsLineCell>
                 </InsightsLineGrid>
+
+                {analyticsData.categoryAnalysis && (
+                  <div className="space-y-2 mt-4">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                      Step Category Execution Breakdown
+                    </p>
+                    <InsightsLineGrid className="grid-cols-1 md:grid-cols-3 md:divide-x md:divide-y-0">
+                      {/* Happy Path */}
+                      <InsightsLineCell className="px-4 py-3">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">Happy Path</p>
+                            <span className="text-[9px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-sm px-1 py-0.5 uppercase tracking-wider">
+                              Success: {Math.round(analyticsData.categoryAnalysis.happyPath.successRate * 100)}%
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-3">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Total Steps</p>
+                              <p className="text-lg font-semibold mt-0.5">{analyticsData.categoryAnalysis.happyPath.total}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Heal Rate</p>
+                              <p className="text-lg font-semibold mt-0.5">{Math.round(analyticsData.categoryAnalysis.happyPath.healRate * 100)}%</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Passed</p>
+                              <p className="text-sm font-semibold text-emerald-500 mt-0.5">{analyticsData.categoryAnalysis.happyPath.passed}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Failed</p>
+                              <p className="text-sm font-semibold text-rose-500 mt-0.5">{analyticsData.categoryAnalysis.happyPath.failed}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </InsightsLineCell>
+
+                      {/* Negative */}
+                      <InsightsLineCell className="px-4 py-3">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-rose-500 uppercase tracking-wider">Negative</p>
+                            <span className="text-[9px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-sm px-1 py-0.5 uppercase tracking-wider">
+                              Success: {Math.round(analyticsData.categoryAnalysis.negative.successRate * 100)}%
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-3">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Total Steps</p>
+                              <p className="text-lg font-semibold mt-0.5">{analyticsData.categoryAnalysis.negative.total}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Heal Rate</p>
+                              <p className="text-lg font-semibold mt-0.5">{Math.round(analyticsData.categoryAnalysis.negative.healRate * 100)}%</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Passed</p>
+                              <p className="text-sm font-semibold text-emerald-500 mt-0.5">{analyticsData.categoryAnalysis.negative.passed}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Failed</p>
+                              <p className="text-sm font-semibold text-rose-500 mt-0.5">{analyticsData.categoryAnalysis.negative.failed}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </InsightsLineCell>
+
+                      {/* Edge */}
+                      <InsightsLineCell className="px-4 py-3">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Edge Cases</p>
+                            <span className="text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-sm px-1 py-0.5 uppercase tracking-wider">
+                              Success: {Math.round(analyticsData.categoryAnalysis.edge.successRate * 100)}%
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-3">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Total Steps</p>
+                              <p className="text-lg font-semibold mt-0.5">{analyticsData.categoryAnalysis.edge.total}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Heal Rate</p>
+                              <p className="text-lg font-semibold mt-0.5">{Math.round(analyticsData.categoryAnalysis.edge.healRate * 100)}%</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Passed</p>
+                              <p className="text-sm font-semibold text-emerald-500 mt-0.5">{analyticsData.categoryAnalysis.edge.passed}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase font-mono">Failed</p>
+                              <p className="text-sm font-semibold text-rose-500 mt-0.5">{analyticsData.categoryAnalysis.edge.failed}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </InsightsLineCell>
+                    </InsightsLineGrid>
+                  </div>
+                )}
 
                 <InsightsLineGrid>
                   <InsightsLineCell className="px-4 py-3">

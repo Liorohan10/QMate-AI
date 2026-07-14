@@ -329,12 +329,10 @@ export class MemoryCatalogManager {
           configPath: this.configPath ? resolve(this.configPath) : resolve(workspaceDir, 'agent-qa.config.yaml'),
         })
       : null
-    const [testFiles, suiteFiles] = workspacePaths
-      ? await Promise.all([
-          discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'test' }),
-          discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'suite' }),
-        ])
-      : [[], []]
+    const testFiles = workspacePaths
+      ? await discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'test' })
+      : []
+    const suiteFiles: any[] = []
 
     const testMetadataById = new Map<string, WorkspaceEntityMetadata>()
     for (const file of testFiles) {

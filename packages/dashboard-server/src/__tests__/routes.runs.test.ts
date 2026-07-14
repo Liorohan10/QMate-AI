@@ -741,7 +741,6 @@ describe('GET /api/runs route contract', () => {
     const dbOnlyRouter = createRouter({
       db: db as never,
       testFileManager: { read: throwIfCalled, findByTestId: throwIfCalled, list: throwIfCalled } as never,
-      suiteFileManager: { read: throwIfCalled, findBySuiteId: throwIfCalled, list: throwIfCalled } as never,
     })
 
     const res = await invokeRoute(dbOnlyRouter, '/api/runs/run-db-only/artifact')

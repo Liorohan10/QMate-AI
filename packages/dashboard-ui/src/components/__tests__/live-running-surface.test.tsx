@@ -6,7 +6,6 @@ import { act, type ReactElement } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { SuiteTestRow } from "@/components/suite-test-row"
 import type { TestStepDetail } from "@/hooks/use-live-editor"
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -105,29 +104,5 @@ describe("live running surface contract", () => {
     expect(source("src/components/editor/editable-step-wrapper.tsx")).toContain(expected)
   })
 
-  it("renders both suite test and nested current-step running surfaces", () => {
-    const view = mount(
-      <SuiteTestRow
-        id="test-0"
-        name="Login flow"
-        path="web/login.yaml"
-        testId="t_login"
-        isMissing={false}
-        onRemove={() => {}}
-        liveMode
-        liveStatus="running"
-        runningStepIndex={0}
-        liveSteps={[makeLiveStep()]}
-      />,
-    )
 
-    const runningSurfaces = view.querySelectorAll(".live-running-surface")
-
-    expect(runningSurfaces.length).toBeGreaterThanOrEqual(2)
-  })
-
-  it("tracks the suite live files that must retain running surface coverage", () => {
-    expect(source("src/components/suite-test-row.tsx")).toContain("live-running-surface")
-    expect(source("src/components/suite-visual-builder.tsx")).toContain("live-running-surface")
-  })
 })

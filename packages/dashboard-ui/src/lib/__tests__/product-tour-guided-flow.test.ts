@@ -18,16 +18,16 @@ function step(id: string, context: ProductTourRuntimeContext = {}) {
 }
 
 describe('guided first-run product tour flow', () => {
-  it('starts with installed-product agent-qa orientation copy', () => {
+  it('starts with installed-product Titan-QA orientation copy', () => {
     const intro = foundationProductTourSteps[0]
 
     expect(intro).toMatchObject({
       id: 'intro',
-      title: 'Welcome to agent-qa',
+      title: 'Welcome to Titan-QA',
       centered: true,
     })
     expect(intro.body).toBe(
-      'agent-qa lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
+      'Titan-QA lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
     )
   })
 
@@ -42,21 +42,17 @@ describe('guided first-run product tour flow', () => {
   })
 
   it('keeps the wayfinding sweep short and outcome-focused', () => {
-    expect(stepIds({ exampleTestId: 'example-test-id', runId: 'run-123' }).slice(0, 8)).toEqual([
+    expect(stepIds({ exampleTestId: 'example-test-id', runId: 'run-123' }).slice(0, 6)).toEqual([
       'intro',
       'llm-setup',
       'runs',
       'tests',
-      'suites',
-      'hooks',
       'memory',
       'config',
     ])
 
     expect(step('runs').body).toContain('outcomes')
     expect(step('tests').body).toContain('natural-language')
-    expect(step('suites').body).toContain('repeatable')
-    expect(step('hooks').body).toContain('between steps')
     expect(step('memory').body).toContain('learned')
     expect(step('config').body).toContain('model')
   })
@@ -79,7 +75,7 @@ describe('guided first-run product tour flow', () => {
     expect(stepIds(context)).not.toContain('example-test')
     expect(resolveProductTourStepRoute(step('example-missing', context), context)).toBe('/tests')
     expect(step('example-missing', context).body).toContain(
-      'agent-qa init normally creates Example passing test',
+      'Titan-QA init normally creates Example passing test',
     )
   })
 

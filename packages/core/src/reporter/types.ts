@@ -1,6 +1,5 @@
 import type { TestDefinition } from '../types/test.js'
 import type { StepPhaseEvent, StepResult, TestResult } from '../types/result.js'
-import type { SuiteDefinition } from '../suite/types.js'
 import type { RunArtifactReporterContext } from '../artifacts/run-artifact.js'
 
 export interface RunSummary {
@@ -52,7 +51,7 @@ export interface HookResultEvent extends HookEvent {
 }
 
 export interface Reporter {
-  onSuiteStart?(suite: SuiteDefinition, context?: RunArtifactReporterContext): void | Promise<void>
+  onSuiteStart?(suite: Record<string, unknown>, context?: RunArtifactReporterContext): void | Promise<void>
   onSuiteEnd?(summary: SuiteSummary): void | Promise<void>
   onRunStart?(tests: TestDefinition[]): void | Promise<void>
   onTestStart?(test: TestDefinition, filePath: string, context?: RunArtifactReporterContext): void | Promise<void>
@@ -66,7 +65,7 @@ export interface Reporter {
 }
 
 export type ReporterEvent =
-  | { type: 'suite-start'; suite: SuiteDefinition; context?: RunArtifactReporterContext }
+  | { type: 'suite-start'; suite: Record<string, unknown>; context?: RunArtifactReporterContext }
   | { type: 'suite-end'; summary: SuiteSummary }
   | { type: 'run-start'; tests: TestDefinition[] }
   | { type: 'test-start'; test: TestDefinition; filePath: string; context?: RunArtifactReporterContext }
@@ -103,7 +102,7 @@ export class MultiReporter implements Reporter {
     }
   }
 
-  async onSuiteStart(suite: SuiteDefinition, context?: RunArtifactReporterContext): Promise<void> {
+  async onSuiteStart(suite: Record<string, unknown>, context?: RunArtifactReporterContext): Promise<void> {
     for (const reporter of this.reporters) {
       try {
         if (context === undefined) {

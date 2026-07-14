@@ -481,9 +481,7 @@ describe('PUT /api/config/settings', () => {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        'workspace.hooksFile': './hooks.yaml',
         'workspace.testMatch': ['tests/**/*.yaml'],
-        'workspace.suiteMatch': ['suites/**/*.suite.yaml'],
         'workspace.agentRules': './agent-rules.md',
         'workspace.envFile': './.env.local',
         'workspace.secretsFile': './.env.secrets.local',
@@ -535,7 +533,6 @@ describe('PUT /api/config/settings', () => {
     const config = await configManager.read()
     expect(config).toMatchObject({
       workspace: {
-        hooksFile: './hooks.yaml',
         agentRules: './agent-rules.md',
         envFile: './.env.local',
         secretsFile: './.env.secrets.local',
@@ -784,7 +781,6 @@ describe('PUT /api/config/settings', () => {
   })
 
   it.each([
-    ['workspace.hooksFile', 'hooksFile is required'],
     ['workspace.agentRules', 'agentRules is required'],
     ['workspace.envFile', 'envFile is required'],
     ['workspace.secretsFile', 'secretsFile is required'],
@@ -806,7 +802,7 @@ describe('PUT /api/config/settings', () => {
     )).toBe(true)
   })
 
-  it.each(['workspace.testMatch', 'workspace.suiteMatch'])('rejects an empty %s array', async (field) => {
+  it.each(['workspace.testMatch'])('rejects an empty %s array', async (field) => {
     const res = await invokeRoute('/api/config/settings', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },

@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DashboardDatabase } from '../db/database.js'
 import { ConfigManager } from '../config/config-manager.js'
 import { createRouter } from '../server/routes.js'
-import { SuiteFileManager } from '../tests/suite-file-manager.js'
 import { TestFileManager } from '../tests/test-file-manager.js'
 import { resolveWorkspacePaths, type ResolvedWorkspacePaths } from '@vostride/agent-qa-core'
 
@@ -25,7 +24,6 @@ let router: ReturnType<typeof createRouter>
 let testsDir: string
 let tempDirs: string[] = []
 let testFileManager: TestFileManager
-let suiteFileManager: SuiteFileManager
 let workspacePaths: ResolvedWorkspacePaths
 
 function insertRun(overrides: Record<string, unknown> = {}) {
@@ -107,9 +105,6 @@ async function applyAnalyticsScopeConfig(content: string): Promise<void> {
     'workspace:',
     '  testMatch:',
     '    - tests/**/*.yaml',
-    '  suiteMatch:',
-    '    - tests/**/*.suite.yaml',
-    '  hooksFile: hooks.yaml',
     '  agentRules: agent-rules.md',
     '  envFile: .env',
     '  secretsFile: .env.secrets.local',
@@ -122,7 +117,6 @@ async function applyAnalyticsScopeConfig(content: string): Promise<void> {
     db,
     workspacePaths,
     testFileManager,
-    suiteFileManager,
     configManager: new ConfigManager(configPath),
   })
 }
@@ -159,8 +153,6 @@ beforeEach(async () => {
     config: {
       workspace: {
         testMatch: ['tests/**/*.yaml'],
-        suiteMatch: ['tests/**/*.suite.yaml'],
-        hooksFile: 'hooks.yaml',
         agentRules: 'agent-rules.md',
         envFile: '.env',
         secretsFile: '.env.secrets.local',
@@ -169,13 +161,10 @@ beforeEach(async () => {
     configPath: join(testsDir, 'agent-qa.config.yaml'),
   })
   testFileManager = new TestFileManager(workspacePaths)
-  suiteFileManager = new SuiteFileManager(workspacePaths, testFileManager)
-
   router = createRouter({
     db,
     workspacePaths,
     testFileManager,
-    suiteFileManager,
   })
 })
 
@@ -309,25 +298,7 @@ describe('GET /api/analytics/breakdowns', () => {
     expect(res.body).toContain('dimension')
   })
 
-  it('returns suite rows with a stable suite label and bounded limits', async () => {
-    insertRun({ id: randomUUID(), filePath: 'tests/smoke.suite.yaml', suiteId: 'suite-smoke', name: 'Checkout flow', status: 'passed', duration: 1000 })
-    insertRun({ id: randomUUID(), filePath: 'tests/smoke.suite.yaml', suiteId: 'suite-smoke', name: 'Checkout flow', status: 'failed', duration: 2000 })
-    insertRun({ id: randomUUID(), filePath: 'tests/other.suite.yaml', suiteId: 'suite-other', name: 'Other flow', status: 'passed', duration: 500 })
 
-    const res = await invokeRoute('/api/analytics/breakdowns?dimension=suite&limit=1')
-    const data = JSON.parse(res.body) as {
-      rows: Array<Record<string, unknown>>
-    }
-
-    expect(res.status).toBe(200)
-    expect(data.rows).toHaveLength(1)
-    expect(data.rows[0]).toMatchObject({
-      key: 'suite-smoke',
-      suiteId: 'suite-smoke',
-      label: 'Smoke Suite',
-      runs: 2,
-    })
-  })
 
   it('is unscoped by default and applies analytics passRateScope when requested', async () => {
     insertRun({

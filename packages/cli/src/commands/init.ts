@@ -414,8 +414,6 @@ export function buildDefaultConfig(
   const config: Record<string, unknown> = {
     workspace: {
       testMatch: ['tests/**/*.yaml'],
-      suiteMatch: ['suites/**/*.suite.yaml'],
-      hooksFile: 'hooks.yaml',
       agentRules: './agent-rules.md',
       envFile: '.env',
       secretsFile: '.env.secrets.local',
@@ -526,7 +524,6 @@ function addYamlComments(yamlStr: string): string {
   return result
 }
 
-const DEFAULT_HOOKS_FILE = 'hooks.yaml'
 const DEFAULT_AGENT_RULES_FILE = 'agent-rules.md'
 const DEFAULT_ENV_FILE = '.env'
 const DEFAULT_SECRETS_FILE = '.env.secrets.local'
@@ -744,11 +741,7 @@ export function createInitCommand(): Command {
         console.log(pc.green(`✓ Created ${envPath}`))
       }
 
-      const hooksPath = join(dir, DEFAULT_HOOKS_FILE)
-      if (force || !existsSync(hooksPath)) {
-        writeFileSync(hooksPath, buildHooksFile(platform))
-        console.log(pc.green(`✓ Created ${hooksPath}`))
-      }
+
 
       const agentRulesPath = join(dir, DEFAULT_AGENT_RULES_FILE)
       if (force || !existsSync(agentRulesPath)) {
@@ -772,16 +765,6 @@ export function createInitCommand(): Command {
       console.log(pc.green(`✓ Created ${exampleFailPath}`))
 
       if (hasWeb(platform)) {
-        const suitesDir = join(dir, 'suites')
-        if (!existsSync(suitesDir)) {
-          mkdirSync(suitesDir, { recursive: true })
-        }
-
-        const scriptsDir = join(dir, 'scripts')
-        if (!existsSync(scriptsDir)) {
-          mkdirSync(scriptsDir, { recursive: true })
-        }
-
         const automationTestsDir = join(testsDir, 'automation-exercise')
         if (!existsSync(automationTestsDir)) {
           mkdirSync(automationTestsDir, { recursive: true })
@@ -792,18 +775,6 @@ export function createInitCommand(): Command {
           writeFileSync(testPath, buildAutomationExerciseTest(test))
           console.log(pc.green(`✓ Created ${testPath}`))
         }
-
-        const automationSuitePath = join(suitesDir, 'automation-exercise.suite.yaml')
-        writeFileSync(automationSuitePath, buildAutomationExerciseSuite())
-        console.log(pc.green(`✓ Created ${automationSuitePath}`))
-
-        const hnScriptPath = join(scriptsDir, 'fetch-hn-top-story.mjs')
-        writeFileSync(hnScriptPath, buildHackerNewsHookScript())
-        console.log(pc.green(`✓ Created ${hnScriptPath}`))
-
-        const hnTestPath = join(testsDir, 'hacker-news-top-story.yaml')
-        writeFileSync(hnTestPath, buildHackerNewsTopStoryTest())
-        console.log(pc.green(`✓ Created ${hnTestPath}`))
 
         const badA11yTestPath = join(testsDir, 'bad-a11y.yaml')
         writeFileSync(badA11yTestPath, buildBadA11yTest())
@@ -823,7 +794,6 @@ export function createInitCommand(): Command {
       if (subscriptionAuthDependency) {
         console.log(`    ${pc.dim('•')} ${PACKAGE_JSON_FILE} dependency for ${SUBSCRIPTION_AUTH_PACKAGE}@${subscriptionAuthDependency.range}`)
       }
-      console.log(`    ${pc.dim('•')} ${DEFAULT_HOOKS_FILE}`)
       console.log(`    ${pc.dim('•')} ${DEFAULT_AGENT_RULES_FILE}`)
       console.log(`    ${pc.dim('•')} ${DEFAULT_ENV_FILE}`)
       console.log(`    ${pc.dim('•')} ${DEFAULT_SECRETS_FILE}`)
@@ -832,10 +802,7 @@ export function createInitCommand(): Command {
       console.log(`    ${pc.dim('•')} tests/example-fail.yaml`)
       if (hasWeb(platform)) {
         console.log(`    ${pc.dim('•')} tests/automation-exercise/*.yaml`)
-        console.log(`    ${pc.dim('•')} tests/hacker-news-top-story.yaml`)
         console.log(`    ${pc.dim('•')} tests/bad-a11y.yaml`)
-        console.log(`    ${pc.dim('•')} suites/automation-exercise.suite.yaml`)
-        console.log(`    ${pc.dim('•')} scripts/fetch-hn-top-story.mjs`)
       }
       console.log(`    ${pc.dim('•')} .gitignore entries`)
       console.log('')

@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { TestResult } from '../types/result.js'
 import type { Reporter, RunSummary, SuiteSummary } from './types.js'
-import type { SuiteDefinition } from '../suite/types.js'
+
 
 export interface JUnitReporterOptions {
   outputPath: string
@@ -26,7 +26,7 @@ export class JUnitReporter implements Reporter {
     this.outputPath = options.outputPath
   }
 
-  onSuiteStart(_suite: SuiteDefinition): void {
+  onSuiteStart(_suite: Record<string, unknown>): void {
     this.inSuiteRun = true
   }
 

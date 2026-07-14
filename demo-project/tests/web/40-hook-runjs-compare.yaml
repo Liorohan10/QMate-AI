@@ -1,7 +1,0 @@
-test-id: t_dating-strain-fon-unwrap-travel-legacy-rax-rach-antu-orias
-name: Hook runjs comparison
-platform: web
-setup:
-  - h_emma-appear-jati-sound-stan-omina-task-mes-tempt-boot
-steps:
-  - Compare the hook result with the inline JavaScript result

@@ -9,6 +9,7 @@ import { cn, formatDuration } from '@/lib/utils'
 import type { DisplayStep } from '@/lib/display-step'
 import type { EditorStep } from '@/hooks/use-live-editor'
 import type { Selection } from '@/lib/selection'
+import { StepCategoryBadge, parseStepCategory } from '../step-category-badge'
 
 interface EditableStepWrapperProps {
   step: DisplayStep
@@ -172,7 +173,17 @@ export function EditableStepWrapper({
                 className="flex items-center gap-2 flex-1 min-w-0 rounded-sm px-1 -mx-1 py-0.5 text-left hover:bg-muted/50 transition-colors"
               >
                 <CompletedStatusIcon status={editorStep.status} />
-                <span className="text-sm truncate flex-1">{editorStep.instruction}</span>
+                <span className="text-sm truncate flex-1">
+                  {(() => {
+                    const { category, cleanName } = parseStepCategory(editorStep.instruction)
+                    return (
+                      <>
+                        <StepCategoryBadge category={category} />
+                        {cleanName}
+                      </>
+                    )
+                  })()}
+                </span>
               </button>
             ) : (
               <>

@@ -118,9 +118,6 @@ async function createWorkspace() {
       'workspace:',
       '  testMatch:',
       '    - tests/**/*.yaml',
-      '  suiteMatch:',
-      '    - suites/**/*.suite.yaml',
-      '  hooksFile: hooks.yaml',
       '  agentRules: agent-rules.md',
       '  envFile: .env',
       '  secretsFile: .env.secrets.local',
@@ -340,12 +337,12 @@ describe('memory routes', () => {
       products: [
         {
           productKey: PRODUCT_ALPHA,
-          observationCount: 3,
-          scopeCounts: { product: 1, suite: 1, test: 1 },
+          observationCount: 2,
+          scopeCounts: { product: 1, suite: 0, test: 1 },
           freshness: '2026-04-22T08:00:00.000Z',
-          sourceCoverage: 2,
+          sourceCoverage: 1,
           targetReferences: ['alpha-android', 'alpha-target'],
-          sourceCounts: { suite: 1, test: 2 },
+          sourceCounts: { suite: 0, test: 1 },
         },
         {
           productKey: PRODUCT_BETA,
@@ -371,12 +368,12 @@ describe('memory routes', () => {
     expect(body).toMatchObject({
       product: {
         productKey: PRODUCT_ALPHA,
-        observationCount: 3,
-        scopeCounts: { product: 1, suite: 1, test: 1 },
+        observationCount: 2,
+        scopeCounts: { product: 1, suite: 0, test: 1 },
         freshness: '2026-04-22T08:00:00.000Z',
-        sourceCoverage: 2,
+        sourceCoverage: 1,
         targetReferences: ['alpha-android', 'alpha-target'],
-        sourceCounts: { suite: 1, test: 2 },
+        sourceCounts: { suite: 0, test: 1 },
         observations: [
           {
             id: OBS_PRODUCT,
@@ -398,34 +395,6 @@ describe('memory routes', () => {
               label: 'Alpha login',
               targetName: 'alpha-target',
               href: `/test/${TEST_ALPHA}`,
-            },
-          },
-          {
-            id: OBS_SUITE,
-            title: 'Smoke suite: authenticated landing flow is reused across runs',
-            content: 'The alpha smoke suite reuses the authenticated landing flow.',
-            trust: 0.76,
-            created: '2026-04-19T08:00:00.000Z',
-            last_confirmed: '2026-04-21T08:00:00.000Z',
-            updated: '2026-04-21T09:15:00.000Z',
-            confirmed_count: 3,
-            contradicted_count: 0,
-            source_test: TEST_GAMMA,
-            scope: 'suite',
-            scopeId: SUITE_ALPHA,
-            scopeRef: {
-              kind: 'suite',
-              id: SUITE_ALPHA,
-              label: 'Alpha smoke',
-              targetName: 'alpha-target',
-              href: `/suite/${SUITE_ALPHA}`,
-            },
-            sourceTestRef: {
-              kind: 'source_test',
-              id: TEST_GAMMA,
-              label: 'Alpha smoke seed',
-              targetName: 'alpha-target',
-              href: `/test/${TEST_GAMMA}`,
             },
           },
           {
@@ -467,10 +436,10 @@ describe('memory routes', () => {
           },
           suite: {
             scope: 'suite',
-            observationCount: 1,
-            freshness: '2026-04-21T08:00:00.000Z',
-            sourceCoverage: 1,
-            scopeIds: [SUITE_ALPHA],
+            observationCount: 0,
+            freshness: null,
+            sourceCoverage: 0,
+            scopeIds: [],
           },
           test: {
             scope: 'test',
@@ -498,7 +467,7 @@ describe('memory routes', () => {
         message: expect.stringContaining('title'),
       }),
     ]))
-    expect(new Set(body.product.observations.map((observation: { id: string }) => observation.id)).size).toBe(3)
+    expect(new Set(body.product.observations.map((observation: { id: string }) => observation.id)).size).toBe(2)
   })
 
   it('rejects invalid product ids with the existing 400 guard before reading any memory directories', async () => {
@@ -518,11 +487,9 @@ describe('memory routes', () => {
     const router = createRouter({ db: { getRuns: () => [] } as any, configManager, configPath })
 
     const productRes = await invokeRoute(router, `/api/memory/scopes/product/${PRODUCT_ALPHA}`)
-    const suiteRes = await invokeRoute(router, `/api/memory/scopes/suite/${SUITE_ALPHA}`)
     const testRes = await invokeRoute(router, `/api/memory/scopes/test/${TEST_ALPHA}`)
 
     expect(productRes.status).toBe(200)
-    expect(suiteRes.status).toBe(200)
     expect(testRes.status).toBe(200)
 
     expect(JSON.parse(productRes.body)).toMatchObject({
@@ -539,30 +506,6 @@ describe('memory routes', () => {
           label: 'Alpha login',
           targetName: 'alpha-target',
           href: `/test/${TEST_ALPHA}`,
-        },
-      }],
-      invalidFiles: [],
-    })
-    expect(JSON.parse(suiteRes.body)).toMatchObject({
-      scope: 'suite',
-      scopeId: SUITE_ALPHA,
-      observations: [{
-        id: OBS_SUITE,
-        title: 'Smoke suite: authenticated landing flow is reused across runs',
-        updated: '2026-04-21T09:15:00.000Z',
-        scopeRef: {
-          kind: 'suite',
-          id: SUITE_ALPHA,
-          label: 'Alpha smoke',
-          targetName: 'alpha-target',
-          href: `/suite/${SUITE_ALPHA}`,
-        },
-        sourceTestRef: {
-          kind: 'source_test',
-          id: TEST_GAMMA,
-          label: 'Alpha smoke seed',
-          targetName: 'alpha-target',
-          href: `/test/${TEST_GAMMA}`,
         },
       }],
       invalidFiles: [],

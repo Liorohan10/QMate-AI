@@ -5,8 +5,6 @@ import { describe, expect, it } from 'vitest'
 type SourceKey =
   | 'runs'
   | 'tests'
-  | 'hooks'
-  | 'suites'
   | 'memory'
   | 'config'
   | 'testViewer'
@@ -20,8 +18,6 @@ type SourceKey =
 const sources: Record<SourceKey, string> = {
   runs: readSource('../../components/runs-table.tsx'),
   tests: readSource('../../pages/tests.tsx'),
-  hooks: readSource('../../pages/hooks.tsx'),
-  suites: readSource('../../pages/suites.tsx'),
   memory: readSource('../../pages/memory.tsx'),
   config: readSource('../../pages/config.tsx'),
   testViewer: readSource('../../pages/test-viewer.tsx'),
@@ -36,8 +32,6 @@ const sources: Record<SourceKey, string> = {
 const routeSources = [
   sources.runs,
   sources.tests,
-  sources.hooks,
-  sources.suites,
   sources.memory,
   sources.config,
 ].join('\n')
@@ -45,20 +39,12 @@ const routeSources = [
 const approvedUiSpecAnchorIds = [
   'tour-nav-runs',
   'tour-nav-tests',
-  'tour-nav-hooks',
-  'tour-nav-suites',
   'tour-nav-memory',
   'tour-nav-config',
-  'tour-help-menu',
-  'tour-help-product-tour',
   'tour-command-product-tour',
   'tour-runs-table',
   'tour-tests-table',
   'tour-tests-new',
-  'tour-hooks-table',
-  'tour-hooks-new',
-  'tour-suites-table',
-  'tour-suites-new',
   'tour-memory-table',
   'tour-config-nav',
   'tour-config-section',
@@ -82,26 +68,6 @@ const approvedAnchors = [
   {
     file: 'tests',
     anchor: 'tour-tests-new',
-    element: 'Button',
-  },
-  {
-    file: 'hooks',
-    anchor: 'tour-hooks-table',
-    element: 'ScrollArea',
-  },
-  {
-    file: 'hooks',
-    anchor: 'tour-hooks-new',
-    element: 'Button',
-  },
-  {
-    file: 'suites',
-    anchor: 'tour-suites-table',
-    element: 'ScrollArea',
-  },
-  {
-    file: 'suites',
-    anchor: 'tour-suites-new',
     element: 'Button',
   },
   {
@@ -151,14 +117,6 @@ const emptyStateAnchors = [
   {
     file: 'tests',
     anchor: 'tour-tests-table',
-  },
-  {
-    file: 'hooks',
-    anchor: 'tour-hooks-table',
-  },
-  {
-    file: 'suites',
-    anchor: 'tour-suites-table',
   },
   {
     file: 'memory',

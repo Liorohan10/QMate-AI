@@ -4,8 +4,6 @@ import { normalizeRunStatus } from '@/lib/status'
 export const PRODUCT_TOUR_AUTO_START_PATHS = [
   routes.runs,
   routes.tests,
-  routes.hooks,
-  routes.suites,
   routes.memory,
   routes.config,
 ] as const
@@ -44,21 +42,12 @@ const hasExampleTest = (context: ProductTourRuntimeContext) => Boolean(context.e
 const lacksExampleTest = (context: ProductTourRuntimeContext) => !context.exampleTestId
 const hasRun = (context: ProductTourRuntimeContext) => Boolean(context.runId)
 const lacksRun = (context: ProductTourRuntimeContext) => !context.runId
-const hasSuccessfulRunDetailValue = (context: ProductTourRuntimeContext) => {
-  const status = normalizeRunStatus(context.runDetailStatus)
-  return (
-    Boolean(context.runId) &&
-    context.runDetailReached === true &&
-    !context.githubNudgeDismissed &&
-    (status === 'passed' || status === 'healed')
-  )
-}
 
 export const foundationProductTourSteps = [
   {
     id: 'intro',
-    title: 'Welcome to agent-qa',
-    body: 'agent-qa lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
+    title: 'Welcome to Titan-QA',
+    body: 'Titan-QA lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
     centered: true,
   },
   {
@@ -71,30 +60,16 @@ export const foundationProductTourSteps = [
   {
     id: 'runs',
     title: 'Runs show outcomes',
-    body: 'Runs show outcomes, artifacts, and reasoning from every agent-qa execution.',
+    body: 'Runs show outcomes, artifacts, and reasoning from every Titan-QA execution.',
     route: routes.runs,
     targetId: 'tour-runs-table',
   },
   {
     id: 'tests',
     title: 'Tests hold natural-language checks',
-    body: 'Tests are natural-language checks that agent-qa can run against your configured web or mobile target.',
+    body: 'Tests are natural-language checks that Titan-QA can run against your configured web or mobile target.',
     route: routes.tests,
     targetId: 'tour-tests-table',
-  },
-  {
-    id: 'suites',
-    title: 'Suites group repeatable workflows',
-    body: 'Suites group related checks into repeatable workflows when one test is not enough.',
-    route: routes.suites,
-    targetId: 'tour-suites-table',
-  },
-  {
-    id: 'hooks',
-    title: 'Hooks run around and between steps',
-    body: 'Hooks can prepare setup, run inline between steps, and handle cleanup around a test or suite.',
-    route: routes.hooks,
-    targetId: 'tour-hooks-table',
   },
   {
     id: 'memory',
@@ -106,7 +81,7 @@ export const foundationProductTourSteps = [
   {
     id: 'config',
     title: 'Config controls local setup',
-    body: 'Config controls the model, target, runtime, and dashboard setup agent-qa uses locally.',
+    body: 'Config controls the model, target, runtime, and dashboard setup Titan-QA uses locally.',
     route: routes.config,
     targetId: 'tour-config-section',
   },
@@ -121,7 +96,7 @@ export const foundationProductTourSteps = [
   {
     id: 'example-missing',
     title: 'Find the example passing test',
-    body: 'agent-qa init normally creates Example passing test. Pick it from Tests when it is available, or create one later.',
+    body: 'Titan-QA init normally creates Example passing test. Pick it from Tests when it is available, or create one later.',
     route: routes.tests,
     targetId: 'tour-tests-table',
     include: lacksExampleTest,
@@ -145,22 +120,10 @@ export const foundationProductTourSteps = [
   {
     id: 'run-detail',
     title: 'Inspect the run detail',
-    body: 'This is the value moment: inspect what agent-qa observed, planned, executed, and verified.',
+    body: 'This is the value moment: inspect what Titan-QA observed, planned, executed, and verified.',
     route: (context) => (context.runId ? routes.runDetail(context.runId) : null),
     targetId: 'tour-run-detail-reasoning',
     include: hasRun,
-  },
-  {
-    id: 'github-nudge',
-    title: 'If agent-qa helped',
-    body: 'If agent-qa helped, consider starring it on GitHub.',
-    centered: true,
-    action: {
-      label: 'View on GitHub',
-      href: PRODUCT_TOUR_GITHUB_URL,
-      icon: 'github',
-    },
-    include: hasSuccessfulRunDetailValue,
   },
   {
     id: 'runs-fallback',

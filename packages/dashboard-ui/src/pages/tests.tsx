@@ -46,10 +46,23 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { useSelectionQueue } from "@/hooks/use-selection-queue"
 import { useRunConfig } from "@/hooks/use-run-config"
-import {
-  getSharedTestsSuitesColumnWidth,
-  SHARED_TESTS_SUITES_COLUMN_IDS,
-} from "@/pages/tests-suites-table-widths"
+const SHARED_TESTS_COLUMN_IDS = ["select", "name", "targetName", "platform", "passRate", "lastRun"]
+
+function getSharedTestsColumnWidth(columnId: string): string | undefined {
+  switch (columnId) {
+    case "select":
+      return "48px"
+    case "platform":
+      return "120px"
+    case "passRate":
+      return "120px"
+    case "lastRun":
+      return "160px"
+    default:
+      return undefined
+  }
+}
+
 import { ShortcutLegend } from "@/components/shortcut-hints"
 import { deleteTestFile, fetchTestFiles, fetchRuns, purgeCache, triggerRun, type TestFileInfo, type RunRow } from "@/lib/api"
 import { cn, formatDate } from "@/lib/utils"
@@ -729,8 +742,8 @@ export default function TestsPage() {
         <ScrollArea data-tour-id="tour-tests-table" className="rounded-md border">
           <Table className="min-w-full table-fixed">
             <colgroup>
-              {SHARED_TESTS_SUITES_COLUMN_IDS.map((columnId) => {
-                const width = getSharedTestsSuitesColumnWidth(columnId)
+              {SHARED_TESTS_COLUMN_IDS.map((columnId) => {
+                const width = getSharedTestsColumnWidth(columnId)
                 return (
                 <col
                   key={columnId}

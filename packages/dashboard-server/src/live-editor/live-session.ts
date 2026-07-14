@@ -12,8 +12,6 @@ import {
   findUnresolvedTemplates,
   parseHookInline,
   stripHookInline,
-  runHooks,
-  runHookInSandbox,
   MobileSetupError,
   readAuthStateMetadata,
   redactAuthStateValue,
@@ -29,7 +27,6 @@ import type {
   PlatformConfig,
   StepResult,
   StepPhaseEvent,
-  HookDefinition,
   MobilePlatform,
   SecretRedactor,
   SecretStore,
@@ -249,7 +246,7 @@ export class LiveSession {
   private terminalError: string | null = null
   private setupHooks: string[] = []
   private teardownHooks: string[] = []
-  private resolvedHooks = new Map<string, HookDefinition>()
+  private resolvedHooks = new Map<string, Record<string, unknown>>()
   private hookRegistryError: string | null = null
   private pendingMessages: ServerMessage[] = []
   private messageSink: ((message: ServerMessage) => void) | null = null
@@ -293,7 +290,7 @@ export class LiveSession {
   }
 
   private emitHookStart(
-    hookDef: Pick<HookDefinition, 'id' | 'name'>,
+    hookDef: { id: string; name: string },
     phase: 'setup' | 'teardown',
     owner: LiveHookOwner = { scope: 'suite' },
   ): LiveHookPayload {
@@ -374,59 +371,7 @@ export class LiveSession {
     hookIds: string[],
     owner: LiveHookOwner = { scope: 'suite' },
   ): Promise<{ allPassed: boolean; logs: LiveExecutionLog[] }> {
-    const logs: LiveExecutionLog[] = []
-
-    for (const hookId of hookIds) {
-      const hookDef = this.resolvedHooks.get(hookId)
-      const started = this.emitHookStart(
-        hookDef ?? { id: hookId, name: hookId },
-        phase,
-        owner,
-      )
-
-      if (!hookDef) {
-        const registryHint = this.hookRegistryError ? ` (${this.hookRegistryError})` : ''
-        const completed = this.emitHookComplete(started, {
-          status: 'failed',
-          duration: 0,
-          stdout: null,
-          stderr: this.hookRegistryError ?? null,
-          variables: null,
-          error: `Hook ID "${hookId}" is not defined in hooks.yaml${registryHint}`,
-        })
-        logs.push(buildHookExecutionLog(completed))
-        if (phase === 'setup') {
-          return { allPassed: false, logs }
-        }
-        continue
-      }
-
-      const result = await runHooks([hookDef], {
-        envVars: this.getHookEnvVars(),
-        secretStore: this.secretStore,
-        secretRedactor: this.secretRedactor,
-      })
-      const hookResult = result.results.get(hookDef.name)
-      const completed = this.emitHookComplete(started, {
-        status: hookResult?.success ? 'passed' : 'failed',
-        duration: hookResult?.duration ?? 0,
-        stdout: hookResult?.stdout ?? null,
-        stderr: hookResult?.stderr ?? null,
-        variables: hookResult && Object.keys(hookResult.variables).length > 0 ? hookResult.variables : null,
-        error: hookResult?.error,
-      })
-      logs.push(buildHookExecutionLog(completed))
-
-      if (hookResult?.success && hookResult.variables && this.variableStore) {
-        this.variableStore.setAll(hookResult.variables, 'hook')
-      }
-
-      if (!hookResult?.success && phase === 'setup') {
-        return { allPassed: false, logs }
-      }
-    }
-
-    return { allPassed: true, logs }
+    return { allPassed: true, logs: [] }
   }
 
   async executeHookCommand(
@@ -639,79 +584,11 @@ export class LiveSession {
 
     const inlineHookCalls = parseHookInline(stepInstruction)
     if (inlineHookCalls.length > 0) {
-      let inlineHookFailed = false
-
-      for (const call of inlineHookCalls) {
-        const hookDef = this.resolvedHooks.get(call.hookId)
-        if (!hookDef) {
-          return {
-            instruction: stepInstruction,
-            originalStepName,
-            executionLogs,
-            preparationError: `Inline hook "${call.hookId}" is not defined in hooks.yaml`,
-          }
-        }
-
-        const startedAt = performance.now()
-        try {
-          const result = await runHookInSandbox(hookDef, {
-            envVars: this.getHookEnvVars(),
-            secretStore: this.secretStore,
-            secretRedactor: this.secretRedactor,
-          })
-          executionLogs.push({
-            id: randomUUID(),
-            type: 'hook',
-            name: hookDef.name,
-            hookId: hookDef.id,
-            phase: 'inline',
-            status: result.success ? 'passed' : 'failed',
-            duration: result.duration,
-            stdout: this.redact(result.stdout),
-            stderr: this.redact(result.stderr),
-            returnData: null,
-            variables: Object.keys(result.variables).length > 0 ? this.redact(result.variables) : null,
-            createdAt: new Date().toISOString(),
-          })
-
-          if (result.success) {
-            if (Object.keys(result.variables).length > 0) {
-              this.variableStore!.setAll(result.variables, 'hook')
-            }
-          } else {
-            inlineHookFailed = true
-            break
-          }
-        } catch (error) {
-          executionLogs.push({
-            id: randomUUID(),
-            type: 'hook',
-            name: hookDef.name,
-            hookId: hookDef.id,
-            phase: 'inline',
-            status: 'failed',
-            duration: performance.now() - startedAt,
-            stdout: null,
-            stderr: this.redact(error instanceof Error ? error.message : String(error)),
-            returnData: null,
-            variables: null,
-            createdAt: new Date().toISOString(),
-          })
-          inlineHookFailed = true
-          break
-        }
-      }
-
-      instruction = stripHookInline(stepInstruction)
-      hasTemplateVars = true
-
-      if (inlineHookFailed) {
-        return {
-          instruction,
-          originalStepName,
-          executionLogs,
-          preparationError: 'Inline hook execution failed',
-        }
+      return {
+        instruction: stepInstruction,
+        originalStepName,
+        executionLogs,
+        preparationError: 'Inline hooks are no longer supported',
       }
     }
 
@@ -909,9 +786,13 @@ export class LiveSession {
       let result = await executeStep(prepared.instruction, loopConfig, stepContext) as LiveStepExecutionResult
 
       if (result.status === 'failed') {
-        const maxHealingAttempts = loopConfig.healingConfig?.maxAttempts ?? 3
-        if (maxHealingAttempts > 0) {
-          const recoveryInstruction = `Fix/heal state: The step "${prepared.instruction}" failed with error: "${result.error}". Find and perform any missing steps (such as entering/selecting the autocomplete suggestion, clicking a checkbox, filling required inputs, or resolving form validation errors) to resolve the error and prepare the page to successfully execute "${prepared.instruction}".`
+        const isNegative = prepared.instruction.toLowerCase().startsWith('[negative]')
+        if (isNegative) {
+          result.error = `No error/warning for this negative test scenario was found on the webpage. (Original error: ${result.error})`
+        } else {
+          const maxHealingAttempts = loopConfig.healingConfig?.maxAttempts ?? 3
+          if (maxHealingAttempts > 0) {
+          const recoveryInstruction = `Fix/heal state: The step "${prepared.instruction}" failed with error: "${result.error}". Find and perform any missing steps (such as entering/selecting the autocomplete suggestion, clicking a checkbox, filling required inputs, or resolving form validation errors) to resolve the error. If you are stuck on the current page, you should visit the previous page (go back) once to check if there was any mistake made there, rectify it, and then come back to the next page to successfully execute "${prepared.instruction}".`
 
           try {
             const recoveryLoopConfig = {
@@ -951,6 +832,7 @@ export class LiveSession {
             // Keep original failure result on error
           }
         }
+      }
       }
 
       result.originalStepName = prepared.originalStepName

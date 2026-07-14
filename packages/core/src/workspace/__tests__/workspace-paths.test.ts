@@ -30,8 +30,6 @@ export async function createSampleWorkspaceConfigFixture(): Promise<SampleWorksp
   const config: AgentQaConfig = {
     workspace: {
       testMatch: ['specs/web/**/*.yaml', 'specs/mobile/**/*.yaml'],
-      suiteMatch: ['cases/**/*.suite.yaml'],
-      hooksFile: 'runtime/hooks/custom-hooks.yaml',
       agentRules: 'config/agent-rules.md',
       envFile: 'config/env/public.env',
       secretsFile: 'config/env/secrets.local',
@@ -76,9 +74,6 @@ export async function createSampleWorkspaceConfigFixture(): Promise<SampleWorksp
   await Promise.all([
     writeFixtureFile(root, 'specs/web/login.yaml', 'name: Login\n'),
     writeFixtureFile(root, 'specs/mobile/alarm.yaml', 'name: Alarm\n'),
-    writeFixtureFile(root, 'cases/smoke.suite.yaml', 'name: Smoke\ntests: []\n'),
-    writeFixtureFile(root, 'runtime/hooks/custom-hooks.yaml', 'hooks: []\n'),
-    writeFixtureFile(root, 'runtime/hooks/set-env.js', 'export default async function setup() {}\n'),
     writeFixtureFile(root, 'config/agent-rules.md', '# Rules\n'),
     writeFixtureFile(root, 'config/env/public.env', 'PUBLIC_VALUE=1\n'),
     writeFixtureFile(root, 'config/env/secrets.local', 'SECRET_VALUE=1\n'),
@@ -108,8 +103,6 @@ describe('workspace path resolver', () => {
 
     expect(workspace.configPath).toBe(path.resolve(fixture.configPath))
     expect(workspace.configDir).toBe(fixture.root)
-    expect(workspace.hooksFile.absolutePath).toBe(path.join(fixture.root, 'runtime/hooks/custom-hooks.yaml'))
-    expect(workspace.hooksFile.workspaceRelativePath).toBe('runtime/hooks/custom-hooks.yaml')
     expect(workspace.agentRules.absolutePath).toBe(path.join(fixture.root, 'config/agent-rules.md'))
     expect(workspace.envFile.absolutePath).toBe(path.join(fixture.root, 'config/env/public.env'))
     expect(workspace.secretsFile.absolutePath).toBe(path.join(fixture.root, 'config/env/secrets.local'))
@@ -139,15 +132,6 @@ describe('workspace path resolver', () => {
       'specs/mobile/alarm.yaml',
       'specs/web/login.yaml',
     ])
-  })
-
-  it('discovers suite files from non-default suiteMatch patterns only', async () => {
-    const fixture = await createSampleWorkspaceConfigFixture()
-    const workspace = resolveWorkspacePaths({ config: fixture.config, configPath: fixture.configPath })
-
-    const records = await discoverWorkspaceFiles({ workspace, kind: 'suite' })
-
-    expect(records.map(record => record.workspaceRelativePath)).toEqual(['cases/smoke.suite.yaml'])
   })
 
   it('resolves an in-pattern test target', async () => {

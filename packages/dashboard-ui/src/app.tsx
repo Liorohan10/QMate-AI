@@ -37,24 +37,16 @@ const RunsPage = lazy(() => import("@/pages/runs"))
 const RunDetailPage = lazy(() => import("@/pages/run-detail"))
 const LiveRunPage = lazy(() => import("@/pages/live-run"))
 const TestsPage = lazy(() => import("@/pages/tests"))
-const HooksPage = lazy(() => import("@/pages/hooks"))
-const HookEditorPage = lazy(() => import("@/pages/hook-editor"))
-const HookViewerPage = lazy(() => import("@/pages/hook-viewer"))
 const TestEditorPage = lazy(() => import("@/pages/test-editor"))
 const TestViewerPage = lazy(() => import("@/pages/test-viewer"))
 const MemoryPage = lazy(() => import("@/pages/memory"))
 const MemoryProductPage = lazy(() => import("@/pages/memory-product"))
 const InsightsPage = lazy(() => import("@/pages/insights"))
 const ConfigPage = lazy(() => import("@/pages/config"))
-const SuitesPage = lazy(() => import("@/pages/suites"))
-const SuiteEditorPage = lazy(() => import("@/pages/suite-editor"))
-const SuiteViewerPage = lazy(() => import("@/pages/suite-viewer"))
 
 const UPDATE_BANNER_ELIGIBLE_PATHS = new Set<string>([
   routes.runs,
   routes.tests,
-  routes.hooks,
-  routes.suites,
   routes.memory,
   routes.config,
 ])
@@ -209,65 +201,7 @@ const router = createBrowserRouter([
           },
         ],
       },
-      {
-        path: "hooks",
-        handle: { crumb: "Hooks" },
-        errorElement: <RouteErrorBoundary />,
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<TableSkeleton />}>
-                <HooksPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "new",
-            handle: { crumb: "New Hook", hideHeader: true },
-            errorElement: <RouteErrorBoundary />,
-            element: (
-              <Suspense fallback={<EditorSkeleton />}>
-                <HookEditorPage />
-              </Suspense>
-            ),
-          },
-        ],
-      },
-      {
-        path: "hook",
-        handle: { crumb: "Hook" },
-        errorElement: <RouteErrorBoundary />,
-        children: [
-          {
-            path: ":id",
-            handle: {
-              crumb: (params: Record<string, string>) => params.id ?? "",
-              hideHeader: true,
-            },
-            children: [
-              {
-                index: true,
-                element: (
-                  <Suspense fallback={<EditorSkeleton />}>
-                    <HookViewerPage />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "edit",
-                handle: { crumb: "Edit", hideHeader: true },
-                errorElement: <RouteErrorBoundary />,
-                element: (
-                  <Suspense fallback={<EditorSkeleton />}>
-                    <HookEditorPage />
-                  </Suspense>
-                ),
-              },
-            ],
-          },
-        ],
-      },
+
       {
         path: "test",
         handle: { crumb: "Test" },
@@ -302,31 +236,7 @@ const router = createBrowserRouter([
           },
         ],
       },
-      {
-        path: "suites",
-        handle: { crumb: "Suites" },
-        errorElement: <RouteErrorBoundary />,
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<TableSkeleton />}>
-                <SuitesPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "new",
-            handle: { crumb: "New Suite", hideHeader: true },
-            errorElement: <RouteErrorBoundary />,
-            element: (
-              <Suspense fallback={<EditorSkeleton />}>
-                <SuiteEditorPage />
-              </Suspense>
-            ),
-          },
-        ],
-      },
+
       {
         path: "memory",
         handle: { crumb: "Memory" },
@@ -355,40 +265,7 @@ const router = createBrowserRouter([
           },
         ],
       },
-      {
-        path: "suite",
-        handle: { crumb: "Suite" },
-        errorElement: <RouteErrorBoundary />,
-        children: [
-          {
-            path: ":suite-id",
-            handle: {
-              crumb: (params: Record<string, string>) => params["suite-id"] ?? "",
-              hideHeader: true,
-            },
-            children: [
-              {
-                index: true,
-                element: (
-                  <Suspense fallback={<EditorSkeleton />}>
-                    <SuiteViewerPage />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "edit",
-                handle: { crumb: "Edit", hideHeader: true },
-                errorElement: <RouteErrorBoundary />,
-                element: (
-                  <Suspense fallback={<EditorSkeleton />}>
-                    <SuiteEditorPage />
-                  </Suspense>
-                ),
-              },
-            ],
-          },
-        ],
-      },
+
       {
         path: "insights",
         handle: { crumb: "Insights", hideHeader: true },

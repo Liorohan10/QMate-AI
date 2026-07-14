@@ -7,7 +7,6 @@ import { createRouter } from './routes.js'
 import { TestRunner } from '../execution/test-runner.js'
 import { JobQueue } from '../queue/job-queue.js'
 import { TestFileManager } from '../tests/test-file-manager.js'
-import { SuiteFileManager } from '../tests/suite-file-manager.js'
 import { ConfigManager } from '../config/index.js'
 import { AppiumManager } from '../execution/appium-manager.js'
 import { WebSocketServer } from 'ws'
@@ -452,8 +451,6 @@ export async function startServer(opts: StartServerOptions): Promise<{
   // TestFileManager for test file CRUD
   const testFileManager = workspacePaths ? new TestFileManager(workspacePaths) : undefined
 
-  const suiteFileManager = workspacePaths ? new SuiteFileManager(workspacePaths, testFileManager) : undefined
-
   const sessionManager = new SessionManager({
     appiumManager,
     configManager,
@@ -467,7 +464,6 @@ export async function startServer(opts: StartServerOptions): Promise<{
     testRunner,
     jobQueue,
     testFileManager,
-    suiteFileManager,
     configManager,
     configPath: resolvedConfigPath,
     llmConfig,

@@ -56,12 +56,13 @@
     "@vostride/agent-qa-web": "workspace:*",
     "ai": "6.0.174",
     "better-sqlite3": "12.9.0",
+    "docx": "^9.7.1",
     "id-agent": "1.0.3",
     "picocolors": "1.1.1",
+    "playwright-core": "1.59.1",
     "tree-kill": "1.2.2",
     "ws": "8.20.0",
     "yaml": "2.8.4",
-    "playwright-core": "1.59.1",
     "zod": "4.4.2"
   },
   "devDependencies": {

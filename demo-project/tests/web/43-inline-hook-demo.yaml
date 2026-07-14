@@ -1,7 +1,0 @@
-test-id: t_best-forum-met-ably-hen-shift-kim-oman-oodles-uca
-name: Inline hook demo
-platform: web
-steps:
-  - Run {{runHook:"h_reak-bond-peat-super-che-streng-proper-juice-pone-bait"}}
-    before opening the page
-  - Verify the runtime environment value is available

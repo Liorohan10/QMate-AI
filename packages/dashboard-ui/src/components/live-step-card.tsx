@@ -15,6 +15,7 @@ import {
 import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import type { LiveStep, LivePhase } from "@/hooks/use-execution-events"
+import { StepCategoryBadge, parseStepCategory } from "./step-category-badge"
 
 function StepStatusIcon({ status }: { status: LiveStep["status"] }) {
   switch (status) {
@@ -94,7 +95,17 @@ export function LiveStepCard({ step, index }: LiveStepCardProps) {
               #{index + 1}
             </span>
           )}
-          <span className="text-sm font-medium break-words">{step.name}</span>
+          <span className="text-sm font-medium break-words">
+            {(() => {
+              const { category, cleanName } = parseStepCategory(step.name)
+              return (
+                <>
+                  <StepCategoryBadge category={category} />
+                  {cleanName}
+                </>
+              )
+            })()}
+          </span>
         </div>
 
         {step.status === "failed" && step.error && (

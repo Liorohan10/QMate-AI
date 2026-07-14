@@ -9,7 +9,6 @@ import {
   parseObservation,
   listObservations,
   parseTestFile,
-  parseSuiteFile,
   resolveMemoryRoot,
   resolveWorkspacePaths,
 } from '@vostride/agent-qa-core'
@@ -96,15 +95,6 @@ export function createCleanMemoryCommand(): Command {
         } catch { /* skip unparseable files */ }
       }
 
-      const expectedSuites = new Set<string>()
-      for (const file of await discoverWorkspaceFiles({ workspace, kind: 'suite' })) {
-        try {
-          const suite = await parseSuiteFile(file.absolutePath)
-          if (suite['suite-id']) expectedSuites.add(suite['suite-id'])
-          expectedSuites.add(suite.name)
-        } catch { /* skip unparseable files */ }
-      }
-
       const memoryRoot = resolveMemoryRoot(config, workspace.configDir)
       if (!existsSync(memoryRoot)) {
         console.log(pc.dim('No memory directory found.'))
@@ -113,7 +103,6 @@ export function createCleanMemoryCommand(): Command {
 
       const TIERS = [
         { dir: 'products', expected: expectedProducts },
-        { dir: 'suites', expected: expectedSuites },
         { dir: 'tests', expected: expectedTests },
       ]
 

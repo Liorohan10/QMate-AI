@@ -2,7 +2,7 @@ import pc from 'picocolors'
 import type { TestDefinition } from '../types/test.js'
 import type { StepResult, TestResult } from '../types/result.js'
 import type { Reporter, RunSummary, SuiteSummary, HookEvent, HookResultEvent } from './types.js'
-import type { SuiteDefinition } from '../suite/types.js'
+
 
 export function humanDuration(milliseconds: number): string {
   if (milliseconds < 1000) return `${milliseconds}ms`
@@ -123,7 +123,7 @@ export class ConsoleReporter implements Reporter {
     return `${this.cacheHits} hits, ${this.cacheMisses} misses`
   }
 
-  onSuiteStart(suite: SuiteDefinition): void {
+  onSuiteStart(suite: Record<string, unknown>): void {
     this.inSuite = true
     this.resetCounters()
     console.log(`\n${this.c(pc.bold, `Suite: ${suite.name}`)}`)

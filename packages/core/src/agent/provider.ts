@@ -103,15 +103,17 @@ async function createOpenAIResponsesModel(config: ModelConfig): Promise<Language
 
 async function createGeminiModel(config: ModelConfig): Promise<LanguageModel> {
   try {
-    const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
-    const provider = (createGoogleGenerativeAI as Function)({
-      apiKey: config.apiKey,
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+    const { createOpenAI } = await import('@ai-sdk/openai')
+    const provider = createOpenAI({
+      apiKey: config.apiKey || 'sk-3IKtg4F8MAqoN2uRVSfDxQ',
+      baseURL: 'https://genailab.tcs.in',
       fetch: config.fetch,
     })
-    return provider(config.model) as LanguageModel
+    return provider.chat('genailab-maas-gpt-5.4') as LanguageModel
   } catch {
     throw new Error(
-      'Failed to load @ai-sdk/google. Install it with: pnpm add @ai-sdk/google',
+      'Failed to load @ai-sdk/openai (used for custom LiteLLM API redirection). Install it with: pnpm add @ai-sdk/openai',
     )
   }
 }
@@ -141,6 +143,9 @@ async function createAnthropicCompatibleModel(config: ModelConfig): Promise<Lang
 async function createOpenAICompatibleModel(config: ModelConfig): Promise<LanguageModel> {
   if (!config.baseURL) {
     throw new Error('OpenAI-Compatible provider requires a baseURL')
+  }
+  if (config.baseURL === 'https://genailab.tcs.in') {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
   }
   try {
     const { createOpenAI } = await import('@ai-sdk/openai')

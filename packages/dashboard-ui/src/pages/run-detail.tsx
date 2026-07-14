@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/empty-state"
 import { useOptionalProductTour } from "@/components/product-tour"
 import { RunNavbar } from "@/components/run-detail/run-navbar"
 import { ArtifactDrawer, type ArtifactDrawerTab } from "@/components/run-detail/artifact-drawer"
-import { HookDetailPanel } from "@/components/run-detail/hook-detail-panel"
+import { ExecutionDetailPanel } from "@/components/run-detail/execution-detail-panel"
 import { StepTree } from "@/components/run-detail/step-tree"
 import { TabPanels } from "@/components/run-detail/tab-panels"
 import type { ScreenshotSide } from "@/components/run-detail/tab-overview"
@@ -913,10 +913,6 @@ export default function RunDetailPage() {
                 steps={displaySteps}
                 selection={selection}
                 onSelect={setSelection}
-                suiteTests={isSuiteParentRun(run) ? suiteTests : undefined}
-                suiteSelectedView={suiteSelectedView}
-                setupHooks={setupHooks}
-                teardownHooks={teardownHooks}
                 inlineLogs={stepExecutionLogs}
               />
             </div>
@@ -926,10 +922,8 @@ export default function RunDetailPage() {
 
           <ResizablePanel defaultSize={65} minSize={30} data-tour-id="tour-run-detail-reasoning">
             <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-              {selection?.type === 'hook' && selectedHookLog ? (
-                <HookDetailPanel log={selectedHookLog} />
-              ) : selection?.type === 'execution' && selectedExecutionLog ? (
-                <HookDetailPanel log={selectedExecutionLog} />
+              {selection?.type === 'execution' && selectedExecutionLog ? (
+                <ExecutionDetailPanel log={selectedExecutionLog} />
               ) : (
                 <TabPanels
                   activeTab={activeTab}

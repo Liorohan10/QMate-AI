@@ -1,11 +1,27 @@
-name: "User Registration Address Step"
-test-id: "t_berry-fora-lief-attar-hei-gem-answer-fine-pele-ammer"
-target: "genesis-join"
-context: "Test the user registration form address entry and progression to the next registration step"
+test-id: t_berry-fora-lief-attar-hei-gem-answer-fine-pele-ammer
+name: User Registration Address Step
+target: genesis-join
+use:
+  browser:
+    name: chromium
+    headless: true
+    viewport:
+      width: 1280
+      height: 720
+  cache: false
+  timeout:
+    step: 3m
+    test: 30m
+context: |
+  The residential customer onboarding web app is available at https://www.genesisenergy.co.nz/join.
+  The test is executed as an anonymous customer starting from a fresh session.
+  The goal is to verify the Address Capture step.
+  We verify that the primary residence checkbox is checked by default, a valid address suggestion is selected, ICP headings load, and the user can proceed to the fuel choice step.
 steps:
   - Verify the registration form asks the user for their address
-  - Verify the primary residence checkbox is checked by default
-  - Enter a valid address into the address field
-  - Select the matching address from the autocomplete list
-  - Click the "Next" button to proceed
-  - Verify the page title confirms the next registration step has loaded
+  - Verify the "Is this your primary residence?" checkbox is checked by default
+  - Type "100 Queen Street, Auckland Central" into the address search input
+  - Click the matching address suggestion for the valid test address
+  - Verify the page shows headings for "ICP Address" and "ICP Number for Electricity"
+  - Click the Continue button
+  - Verify the next page asks "What energy types are you looking for?"

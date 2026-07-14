@@ -221,51 +221,16 @@ afterEach(() => {
 })
 
 describe('command palette suite navigation (SC-4)', () => {
-  it('includes Hooks in the Pages group', async () => {
+  it('includes creation action for new test', async () => {
     await renderPalette()
 
     const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const hooksPage = items.find((el) => el.getAttribute('data-value') === 'page-Hooks')
-    expect(hooksPage).toBeTruthy()
-
-    act(() => { hooksPage?.click() })
-    expect(navigateSpy).toHaveBeenCalledWith('/hooks')
-  })
-
-  it('includes creation actions for new tests, suites, and hooks', async () => {
-    await renderPalette()
-
-    let items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
     const newTest = items.find((el) => el.getAttribute('data-value') === 'create add new test tests yaml')
-    const newSuite = items.find((el) => el.getAttribute('data-value') === 'create add new suite suites yaml')
-    const newHook = items.find((el) => el.getAttribute('data-value') === 'create add new hook hooks setup teardown inline')
 
     expect(newTest?.textContent).toContain('New Test')
-    expect(newSuite?.textContent).toContain('New Suite')
-    expect(newHook?.textContent).toContain('Create Hook')
 
     act(() => { newTest?.click() })
     expect(navigateSpy).toHaveBeenCalledWith('/tests/new')
-
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
-    })
-    await new Promise((r) => setTimeout(r, 0))
-    items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    act(() => {
-      items.find((el) => el.getAttribute('data-value') === 'create add new suite suites yaml')?.click()
-    })
-    expect(navigateSpy).toHaveBeenCalledWith('/suites/new')
-
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
-    })
-    await new Promise((r) => setTimeout(r, 0))
-    items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    act(() => {
-      items.find((el) => el.getAttribute('data-value') === 'create add new hook hooks setup teardown inline')?.click()
-    })
-    expect(navigateSpy).toHaveBeenCalledWith('/hooks/new')
   })
 
   it('pins the dialog shell and reserves list-pane height while results change', async () => {
@@ -326,16 +291,6 @@ describe('command palette suite navigation (SC-4)', () => {
     expectNoPrivateCommandCopy(commandSurface)
   })
 
-  it('clicking a Suite command item navigates to /suite/:suite-id', async () => {
-    await renderPalette()
-    await typeSearch('Palette')
-    const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const suiteItems = items.filter((el) => el.getAttribute('data-value')?.startsWith('suite '))
-    expect(suiteItems.length).toBeGreaterThan(0)
-    act(() => { suiteItems[0]!.click() })
-    expect(navigateSpy).toHaveBeenCalledWith('/suite/s_palette-match')
-  })
-
   it('finds tests by test name and shows the name before the file path', async () => {
     apiMocks.fetchTestFiles.mockResolvedValueOnce({
       files: [
@@ -390,85 +345,6 @@ describe('command palette suite navigation (SC-4)', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/test/tests/web/legacy.yaml')
   })
 
-  it('keeps suites visible when the query matches only the suite file path', async () => {
-    apiMocks.fetchSuiteFiles.mockResolvedValueOnce({
-      files: [
-        {
-          path: 'suites/release-web-mdn.suite.yaml',
-          suiteId: 's_release_web_mdn',
-          name: 'Release validation',
-          testCount: 3,
-          modified: '',
-          platform: 'web',
-        },
-      ],
-    })
-
-    await renderPalette()
-    await typeSearch('release-web-mdn')
-
-    const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const suiteItems = items.filter((el) => el.getAttribute('data-value')?.startsWith('suite '))
-    expect(suiteItems).toHaveLength(1)
-    expect(suiteItems[0]!.textContent).toContain('Release validation')
-    expect(suiteItems[0]!.textContent).toContain('suites/release-web-mdn.suite.yaml')
-    expect(suiteItems[0]!.getAttribute('data-value')).toContain('suites/release-web-mdn.suite.yaml')
-  })
-
-  it('suites with null suiteId are not rendered in the Suites group', async () => {
-    await renderPalette()
-    await typeSearch('Palette')
-    const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const suiteItems = items.filter((el) => el.getAttribute('data-value')?.startsWith('suite '))
-    expect(suiteItems.length).toBe(1)
-    expect(suiteItems[0]!.textContent).toContain('Palette Match')
-    for (const el of suiteItems) {
-      const value = el.getAttribute('data-value') ?? ''
-      expect(value).not.toContain('n.suite.yaml')
-    }
-  })
-
-  it('clicking a Hook command item navigates to /hook/:id', async () => {
-    await renderPalette()
-    await typeSearch('Palette')
-
-    const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const hookItems = items.filter((el) => el.getAttribute('data-value')?.startsWith('hook '))
-    expect(hookItems.length).toBeGreaterThan(0)
-
-    act(() => { hookItems[0]!.click() })
-    expect(navigateSpy).toHaveBeenCalledWith('/hook/h_palette-match')
-  })
-
-  it('keeps hooks visible when the query matches only the hook file path', async () => {
-    apiMocks.fetchHookCatalog.mockResolvedValueOnce({
-      hooks: [
-        {
-          id: 'h_hn_top_story',
-          name: 'Fetch HN top story',
-          runtime: 'python',
-          file: 'fetch-hn-top-story-python.py',
-          timeout: 30000,
-          network: true,
-          fileMissing: false,
-        },
-      ],
-      filePath: './hooks.yaml',
-      errors: [],
-      missing: false,
-    })
-
-    await renderPalette()
-    await typeSearch('fetch-hn-top-story')
-
-    const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    const hookItems = items.filter((el) => el.getAttribute('data-value')?.startsWith('hook '))
-    expect(hookItems).toHaveLength(1)
-    expect(hookItems[0]!.textContent).toContain('Fetch HN top story')
-    expect(hookItems[0]!.textContent).toContain('fetch-hn-top-story-python.py')
-    expect(hookItems[0]!.getAttribute('data-value')).toContain('fetch-hn-top-story-python.py')
-  })
-
   it('includes Memory in the Pages group and opens /memory', async () => {
     await renderPalette()
 
@@ -520,11 +396,9 @@ describe('command palette suite navigation (SC-4)', () => {
         .some((el) => el.getAttribute('data-value') === 'page-Memory'),
     ).toBe(true)
 
-    await typeSearch('Palette')
+    await typeSearch('stripe')
 
     const items = Array.from(container.querySelectorAll('[data-testid="cmd-item"]')) as HTMLButtonElement[]
-    expect(items.some((el) => el.getAttribute('data-value')?.startsWith('suite '))).toBe(true)
-    expect(items.some((el) => el.getAttribute('data-value')?.startsWith('hook '))).toBe(true)
     expect(items.some((el) => el.getAttribute('data-value')?.startsWith('memory-'))).toBe(false)
   })
 

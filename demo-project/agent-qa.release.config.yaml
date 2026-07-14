@@ -1,9 +1,6 @@
 workspace:
   testMatch:
     - release-action-pack/**/*.yaml
-  suiteMatch:
-    - release-action-pack/**/*.suite.yaml
-  hooksFile: hooks.yaml
   agentRules: ./agent-rules.md
   envFile: .env
   secretsFile: .env.secrets.local

@@ -1,30 +1,27 @@
-name: "Genesis Join Flow — Recommended Energy Plan Selection"
-test-id: "t_lede-imer-parate-intent-prow-bella-outing-hope-orb-dab"
-target: "genesis-join"
+test-id: t_lede-imer-parate-intent-prow-bella-outing-hope-orb-dab
+name: Genesis Join Flow — Recommended Energy Plan Selection
+target: genesis-join
 use:
   browser:
     name: chromium
     headless: true
+    viewport:
+      width: 1280
+      height: 720
+  cache: false
   timeout:
     step: 3m
     test: 30m
 context: |
-  Starting URL: https://www.genesisenergy.co.nz/join.
-  The session is a fresh anonymous browser session with no login or prior join state.
-  This test exercises the residential join wizard from address entry through plan recommendation and selection.
-  Use a valid test address such as {{env:VALID_ADDRESS}}; if no environment variable is provided, use
-  "1 Queen Street, Auckland Central, Auckland 1010" since the crawl history shows it reaches the plans flow.
-  Preconditions from the crawl: the first page asks for an address, selecting a matching address reveals
-  ICP address and ICP number headings, then continuing leads to the residential fuel choice page, and
-  selecting an energy type leads to the plans page where plan cards and select buttons are shown.
-  The plan page contains recommended electricity plans for the captured address, and a selected plan should
-  be highlighted and can be continued from the same screen.
+  The residential customer onboarding web app is available at https://www.genesisenergy.co.nz/join.
+  The test is executed as an anonymous customer starting from a fresh session.
+  The goal is to verify the Recommended Energy Plan Selection flow.
+  The user enters a valid NZ address, selects 'Electricity Only' to load single-fuel plans, verifies that available plans (like PowerHome) are listed on the plans page, selects the PowerHome plan, and clicks Continue to proceed.
 steps:
   - Verify the page heading says "What's your address?"
-  - Type the valid test address into the street address input field
-  - Wait for matching address suggestions to appear below the address field
+  - Type "100 Queen Street, Auckland Central" into the address search input
   - Click the matching address suggestion for the valid test address
-  - Verify the page shows headings for "ICP Address", "ICP Number for Electricity", and "ICP Number for Gas"
+  - Verify the page shows headings for "ICP Address" and "ICP Number for Electricity"
   - Click the Continue button
   - Verify the next page asks "What energy types are you looking for?"
   - Click the "Electricity Only" button
@@ -32,6 +29,6 @@ steps:
   - Verify the plans page heading says "Which plan works for you?"
   - Verify the plans page shows the available electricity plan options
   - Click the "Select PowerHome plan" button
-  - Verify the PowerHome plan is highlighted or otherwise marked as selected
+  - Verify the PowerHome plan is highlighted as selected
   - Click the Continue button
-  - Verify the chosen plan selection is preserved when proceeding
+  - Verify the contact details form is displayed

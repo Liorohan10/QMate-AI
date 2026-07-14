@@ -19,6 +19,7 @@ metadata:
 3. Identify the failing surface: test definition, hook, application under test, runtime infrastructure, or agent behavior.
 4. Inspect the relevant local files directly. Do not infer patches from artifacts alone.
 5. Apply the smallest code or YAML change that explains the evidence.
+   - **Prerequisite Step Healing**: If a test failed because a step was unreachable or failed validation (e.g., button is disabled or plan cards are missing), collect the screenshot of the current page where it got stuck, inspect the website's current DOM/ARIA structure and form fields, analyze what steps were missed earlier (e.g., incomplete address lookup, missing continue click, unselected checkbox), and insert the missing prerequisite steps (or modify existing steps) to make the test flow smoothly again.
 6. Re-run the narrowest affected agent-qa test, suite, hook, or unit test.
 7. Report the root cause, changed files, verification command, and any remaining risk.
 

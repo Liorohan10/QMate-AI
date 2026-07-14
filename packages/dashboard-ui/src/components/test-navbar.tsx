@@ -1,6 +1,6 @@
 import { Link } from "react-router"
 import {
-  ChevronRight, Save, CheckCircle2, Settings, Keyboard, Loader2, PlayCircle, Square,
+  ChevronRight, Save, CheckCircle2, Settings, Keyboard, Loader2, PlayCircle, Square, Download,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ interface TestNavbarProps {
   onLiveEnd?: () => void
   onSettingsOpen: () => void
   onToggleShortcuts: () => void
+  onDownloadReport?: () => void
 }
 
 export function TestNavbar({
@@ -67,6 +68,7 @@ export function TestNavbar({
   onLiveEnd,
   onSettingsOpen,
   onToggleShortcuts,
+  onDownloadReport,
 }: TestNavbarProps) {
   const isViewMode = mode === 'view' && !isCreateMode
   const showLiveAction = !!onLiveConnect || !!onLiveEnd || hasLiveSession || liveConnectionState === "connecting"
@@ -95,7 +97,20 @@ export function TestNavbar({
             {testName}
           </Link>
         ) : (
-          <span className="text-sm font-medium truncate">{testName}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm font-medium truncate">{testName}</span>
+            {isViewMode && onDownloadReport && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDownloadReport}
+                title="Download Execution Report"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         )}
         {showEditCrumb && (
           <>

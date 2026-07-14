@@ -16,12 +16,9 @@ import { createTimeoutAbortReason, executeStep, getTimeoutAbortReason, withAbort
 import { VariableStore, interpolateVariables, findUnresolvedTemplates, createExtractor } from './variables.js'
 import { resolveSecretTemplatesInValue, redactSecretValue, type SecretRedactor, type SecretStore } from './secrets.js'
 import { parseAppiumInline } from './appium-inline.js'
-import { parseHookInline, stripHookInline } from './hook-inline.js'
 import { parseRunJSInline, coerceRunJSResult } from './runjs-inline.js'
 import { generateFailureSummary } from './failure-summary.js'
 import type { LogManager } from '../logging/log-manager.js'
-import type { HookDefinition } from '../hooks/types.js'
-import { runHookInSandbox, type SandboxRunnerOptions } from '../hooks/sandbox-runner.js'
 
 const accessibilityWebModuleName: string = '@vostride/agent-qa-web'
 
@@ -69,8 +66,6 @@ export interface RunTestConfig {
   suiteVars?: Record<string, string>
   cliVars?: Record<string, string>
   hookSetupVars?: Record<string, string>
-  inlineHookDefs?: Map<string, HookDefinition>
-  inlineHookSandboxOptions?: SandboxRunnerOptions
   suiteFileContent?: string
   suiteTestIndex?: number
   suiteContext?: string
@@ -239,92 +234,8 @@ export async function runTest(
       deadlineTimers.push(setTimeout(() => abortForTimeout('step', stepTimeout), stepTimeout))
     }
 
-    // Inline hook execution: runs BEFORE variable interpolation (D-04, D-07)
-    let instructionAfterHooks = rawInstruction
-    let inlineHookFailed = false
-    let inlineHookAbortResult: StepResult | undefined
-    if (config.inlineHookDefs && config.inlineHookSandboxOptions) {
-      const inlineHookCalls = parseHookInline(rawInstruction)
-      for (const call of inlineHookCalls) {
-        const hookDef = config.inlineHookDefs.get(call.hookId)
-        if (!hookDef) continue
-        const hookExecId = randomUUID()
-        const allVars = Object.fromEntries(variableStore.getAll())
-        await reporter?.onHookStart?.({
-          hookId: hookDef.id,
-          hookName: hookDef.name,
-          phase: 'inline',
-          hookExecutionId: hookExecId,
-          runId: config.runId,
-          stepId: String(stepIndex),
-        })
-        try {
-          const result = await withAbort(
-            runHookInSandbox(hookDef, {
-              ...config.inlineHookSandboxOptions,
-              secretStore: config.secretStore,
-              secretRedactor: config.secretRedactor,
-              envVars: { ...config.inlineHookSandboxOptions.envVars, ...allVars },
-            }),
-            stepAbortController.signal,
-          )
-          await reporter?.onHookEnd?.({
-            hookId: hookDef.id, hookName: hookDef.name, phase: 'inline', hookExecutionId: hookExecId,
-            runId: config.runId,
-            stepId: String(stepIndex),
-            status: result.success ? 'passed' : 'failed',
-            duration: result.duration, stdout: result.stdout, stderr: result.stderr,
-            variables: result.variables, error: result.error,
-          })
-          if (result.success) {
-            variableStore.setAll(result.variables, 'hook')
-          } else {
-            inlineHookFailed = true
-            break
-          }
-        } catch (err: any) {
-          const error = getErrorMessage(err)
-          inlineHookAbortResult = createAbortedStepResult(
-            rawInstruction,
-            performance.now() - startTime,
-            stepAbortController.signal,
-          )
-          await reporter?.onHookEnd?.({
-            hookId: hookDef.id, hookName: hookDef.name, phase: 'inline', hookExecutionId: hookExecId,
-            runId: config.runId,
-            stepId: String(stepIndex),
-            status: 'failed', duration: 0, stdout: '', stderr: '',
-            variables: {}, error,
-          })
-          inlineHookFailed = true
-          break
-        }
-      }
-      instructionAfterHooks = stripHookInline(rawInstruction)
-    }
-
-    if (inlineHookFailed) {
-      steps.push(inlineHookAbortResult ?? {
-        name: rawInstruction,
-        status: 'failed',
-        duration: 0,
-        error: 'Inline hook execution failed',
-        trace: {
-          observation: '',
-          reasoning: 'Inline hook execution failed before step could run',
-          plannedAction: { type: 'waitFor', condition: 'none', timeout: 0 },
-          result: 'failure',
-          error: 'Inline hook execution failed',
-          screenStateBefore: '',
-        },
-      })
-      testFailed = inlineHookAbortResult?.status !== 'cancelled'
-      clearStepScope()
-      break
-    }
-
-    const originalStepName = instructionAfterHooks
-    let instruction = interpolateVariables(instructionAfterHooks, variableStore)
+    const originalStepName = rawInstruction
+    let instruction = interpolateVariables(rawInstruction, variableStore)
     let hasTemplateVars = originalStepName !== instruction
 
     const stepId = randomUUID()
@@ -548,11 +459,15 @@ export async function runTest(
         result = await executeStep(instruction, loopConfig, context)
 
         if (result.status === 'failed') {
-          const maxHealingAttempts = config.healingConfig?.maxAttempts ?? 3
-          if (maxHealingAttempts > 0) {
-            runnerLog?.info(`Step '${instruction}' failed. Attempting self-healing recovery...`)
+          const isNegative = instruction.toLowerCase().startsWith('[negative]')
+          if (isNegative) {
+            result.error = `No error/warning for this negative test scenario was found on the webpage. (Original error: ${result.error})`
+          } else {
+            const maxHealingAttempts = config.healingConfig?.maxAttempts ?? 3
+            if (maxHealingAttempts > 0) {
+              runnerLog?.info(`Step '${instruction}' failed. Attempting self-healing recovery...`)
 
-            const recoveryInstruction = `Fix/heal state: The step "${instruction}" failed with error: "${result.error}". Find and perform any missing steps (such as entering/selecting the autocomplete suggestion, clicking a checkbox, filling required inputs, or resolving form validation errors) to resolve the error and prepare the page to successfully execute "${instruction}".`
+            const recoveryInstruction = `Fix/heal state: The step "${instruction}" failed with error: "${result.error}". Find and perform any missing steps (such as entering/selecting the autocomplete suggestion, clicking a checkbox, filling required inputs, or resolving form validation errors) to resolve the error. If you are stuck on the current page, you should visit the previous page (go back) once to check if there was any mistake made there, rectify it, and then come back to the next page to successfully execute "${instruction}".`
 
             try {
               const recoveryLoopConfig = {
@@ -595,6 +510,7 @@ export async function runTest(
             }
           }
         }
+      }
       }
 
       result.originalStepName = hasTemplateVars ? originalStepName : undefined

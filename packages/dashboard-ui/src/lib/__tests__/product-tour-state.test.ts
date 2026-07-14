@@ -175,8 +175,6 @@ describe('foundation product tour step contracts', () => {
     expect(PRODUCT_TOUR_AUTO_START_PATHS).toEqual([
       '/runs',
       '/tests',
-      '/hooks',
-      '/suites',
       '/memory',
       '/config',
     ])
@@ -195,8 +193,6 @@ describe('foundation product tour step contracts', () => {
       { id: 'llm-setup', route: '/config?bucket=registry&item=llms' },
       { id: 'runs', route: '/runs' },
       { id: 'tests', route: '/tests' },
-      { id: 'suites', route: '/suites' },
-      { id: 'hooks', route: '/hooks' },
       { id: 'memory', route: '/memory' },
       { id: 'config', route: '/config' },
       { id: 'example-test', route: null },
@@ -204,7 +200,6 @@ describe('foundation product tour step contracts', () => {
       { id: 'run-action', route: '/tests' },
       { id: 'live-run', route: null },
       { id: 'run-detail', route: null },
-      { id: 'github-nudge', route: null },
       { id: 'runs-fallback', route: '/runs' },
     ])
 
@@ -213,8 +208,6 @@ describe('foundation product tour step contracts', () => {
       'llm-setup',
       'runs',
       'tests',
-      'suites',
-      'hooks',
       'memory',
       'config',
       'example-test',
@@ -222,7 +215,6 @@ describe('foundation product tour step contracts', () => {
       'run-action',
       'live-run',
       'run-detail',
-      'github-nudge',
       'runs-fallback',
     ])
   })

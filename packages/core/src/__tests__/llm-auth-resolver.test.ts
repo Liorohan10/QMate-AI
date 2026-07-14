@@ -204,7 +204,7 @@ describe('resolveLLMAuth', () => {
     })
   })
 
-  it('returns missing for gemini without a named config credential', async () => {
+  it('returns resolved api-key for gemini even without a named config credential', async () => {
     await writeDecoyCredentials()
 
     const result = await resolveLLMAuth('planner', {
@@ -213,11 +213,10 @@ describe('resolveLLMAuth', () => {
     }, authPath)
 
     expect(result).toEqual({
-      kind: 'missing',
+      kind: 'api-key',
       credentialKey: 'planner',
       provider: 'gemini',
-      required: true,
-      message: 'Save a Gemini API key for this config before testing.',
+      apiKey: 'sk-3IKtg4F8MAqoN2uRVSfDxQ',
     })
   })
 

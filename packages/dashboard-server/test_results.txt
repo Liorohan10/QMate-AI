@@ -1,0 +1,433 @@
+
+ RUN  v4.1.5 /home/labuser/Desktop/Project/agent-qa-main/packages/dashboard-server
+
+ ❯ src/__tests__/live-session.test.ts (26 tests | 7 failed) 181ms
+     ✓ initialize creates adapter and model for web platform 18ms
+     ✓ initialize navigates to URL when provided 2ms
+     ✓ initialize resolves secret placeholders only for adapter navigation 1ms
+     ✓ initialize remains interactive when hookRegistryError is present but no missing setup hooks are requested 1ms
+     × initialize surfaces hookRegistryError when a configured setup hook is unavailable 12ms
+     ✓ initialize throws when android adapter is not available 3ms
+     ✓ executeStepCommand calls executeStep with correct config 3ms
+     ✓ executeStepCommand passes secret context and redacts returned live payloads 2ms
+     ✓ executeStepCommand redacts auth-state shaped live payloads 2ms
+     ✓ executeStepCommand throws when already executing 101ms
+     ✓ executeStepCommand tracks previousSteps across calls 1ms
+     × executeStepCommand runs inline hooks before unresolved-template validation and uses hook variables in the same step 2ms
+     × executeStepCommand fails fast when an inline hook id is missing from the live registry 10ms
+     ✓ initialize seeds env vars into the live variable store 1ms
+     × initialize runs setup hooks before the session becomes interactive 2ms
+     × initialize leaves the session inspectable when setup hooks fail 2ms
+     ✓ cancelStep does not throw when no step executing 0ms
+     × executeHookCommand runs a single hook on demand and stores emitted variables 3ms
+     ✓ getState returns correct state 1ms
+     ✓ startIdleTimer calls callback after timeout 4ms
+     ✓ clearIdleTimer prevents callback 1ms
+     ✓ cleanup calls adapter.cleanup 1ms
+     × cleanup runs teardown hooks when the live session ends 2ms
+     ✓ getScreenshot delegates to adapter 2ms
+     ✓ initialize does not pass screenshotSize to adapter.setup() 1ms
+     ✓ executeStepCommand passes screenshotSize to loopConfig when configured 1ms
+ ❯ src/__tests__/memory-catalog-manager.test.ts (5 tests | 5 failed) 306ms
+     × aggregates product, suite, and test memory without mutating workspace ids or invoking file-manager list() 129ms
+     × sorts products by descending freshness, then source coverage, then product key 20ms
+     × reads observations from configured services.memory.dir and ignores the default memory root 40ms
+     × returns one canonical product detail payload with titled observations and structured invalid file details 54ms
+     × returns scoped reads with workspace metadata and per-file invalid details while keeping valid files readable 61ms
+ ❯ src/__tests__/routes.memory.test.ts (8 tests | 3 failed) 337ms
+     × returns a product catalog sorted by freshness, source coverage, then product key 159ms
+     × returns a canonical product detail payload for /memory/:product with title and invalidFiles 29ms
+     ✓ rejects invalid product ids with the existing 400 guard before reading any memory directories 8ms
+     × serves scoped reads with workspace metadata and per-file invalid details 54ms
+     ✓ keeps the legacy /api/memory/observations/:testId route while returning title and invalidFiles 35ms
+     ✓ deletes test observations only from the configured memory tests directory 19ms
+     ✓ rejects encoded path traversal when deleting memory observations 20ms
+     ✓ rejects invalid scope values, rejects path escapes, and 404s unknown valid scope ids 11ms
+ ❯ src/__tests__/routes.config-settings.test.ts (56 tests | 3 failed) 552ms
+     ✓ returns only version and update.latestVersion when an update is available 28ms
+     ✓ returns exactly version when no update is available 19ms
+     ✓ returns exactly version when the update helper rejects 4ms
+     × persists the missing latest-schema sections through dotted config paths 65ms
+     ✓ persists use.mobile.appState scalar updates 14ms
+     ✓ rejects invalid use.mobile.appState values 4ms
+     ✓ rejects removed global use.device settings 8ms
+     ✓ saves browser headless scalar without dropping browser siblings 15ms
+     ✓ migrates legacy root headless to browser headless when nested value is absent 14ms
+     ✓ keeps nested browser headless and removes legacy root headless when both exist 10ms
+     × rejects an empty workspace.hooksFile value 6ms
+     ✓ rejects an empty workspace.agentRules value 4ms
+     ✓ rejects an empty workspace.envFile value 4ms
+     ✓ rejects an empty workspace.secretsFile value 4ms
+     ✓ rejects an empty workspace.testMatch array 33ms
+     × rejects an empty workspace.suiteMatch array 8ms
+     ✓ rejects services.dashboard.testsDir 12ms
+     ✓ rejects empty services.memory.dir 5ms
+     ✓ rejects invalid analytics pass rate scope predicates 18ms
+     ✓ rejects invalid web targets with dotted validation paths 13ms
+     ✓ persists mobile target app install fields 20ms
+     ✓ rejects absolute mobile target app path 3ms
+     ✓ rejects unknown mobile target app keys 6ms
+     ✓ rejects invalid local device match fields with dotted validation paths 8ms
+     ✓ omits product-facing authMethod from GET /api/config 5ms
+     ✓ accepts exactly the five LLM provider modes in registry.llms 15ms
+     ✓ rejects product-facing authMethod in registry.llms 2ms
+     ✓ writes compatible configs without inline API keys 14ms
+     ✓ rejects openai-compatible configs without baseURL 3ms
+     ✓ rejects inline openai-compatible API keys before persistence 10ms
+     ✓ rejects providerHeaders on non-anthropic-compatible configs 2ms
+     ✓ rejects removed provider values through generic schema validation 2ms
+     ✓ saves api-key credentials by config name 14ms
+     ✓ saves bearer-token credentials by config name for anthropic-compatible 4ms
+     ✓ rejects credential save without configName 2ms
+     ✓ rejects credential save for unknown config names 5ms
+     ✓ rejects credential save when config provider does not match the request provider 11ms
+     ✓ rejects typed secret saves for subscription modes 2ms
+     ✓ lists built-in and plugin LLM provider metadata 6ms
+     ✓ starts browser-poll plugin auth and saves OAuth credentials server-side 9ms
+     ✓ starts manual-code plugin auth and exchanges codes server-side 23ms
+     ✓ creates live sessions with current plugin auth after dashboard OAuth without restart 9ms
+     ✓ rejects plugin auth starts for non-matching or missing named subscription configs 22ms
+     ✓ reports plugin auth config read failures as server errors 4ms
+     ✓ lists api bearer and oauth credentials by config name using plugin product labels 1ms
+     ✓ deletes credentials by config name 1ms
+     ✓ tests openai-compatible without a saved credential 3ms
+     ✓ tests anthropic-compatible without a saved credential 9ms
+     ✓ reports gemini missing credential by config name 5ms
+     ✓ passes providerHeaders through only for anthropic-compatible tests 3ms
+     ✓ rejects auth-like providerHeaders 4ms
+     ✓ rejects inline apiKey in LLM connection test requests 2ms
+     ✓ maps resolver bearer-token auth to runtime authToken 12ms
+     ✓ returns auth_error copy for authentication failures 7ms
+     ✓ returns model_not_found for missing model responses 5ms
+     ✓ returns network_error for base URL failures 3ms
+ ❯ src/__tests__/routes.test.ts (69 tests | 1 failed) 742ms
+       ✓ extracts use.parallel false before top-level parallel 16ms
+       ✓ extracts use.parallel true before config parallel 2ms
+       ✓ keeps live execution timeline state out of durable schema and artifacts 8ms
+       ✓ lists saved auth-state metadata without exposing paths or payloads 88ms
+       ✓ filters auth-state metadata by target 21ms
+       ✓ saves auth state through the live session capture method 10ms
+       ✓ rejects invalid auth-state names with lowercase slug guidance 2ms
+       ✓ returns 404 for unknown live sessions 2ms
+       ✓ returns a path-free conflict message when auth state already exists 3ms
+       ✓ sanitizes live-session save failures: Auth-state capture is only available for web Live Mode sessions. 2ms
+       ✓ sanitizes live-session save failures: Live session is not ready for auth-state capture. 2ms
+       ✓ sanitizes live-session save failures: Cannot save auth state while the Live Mode session is executing. 2ms
+       ✓ sanitizes live-session save failures: EACCES .agent-qa/auth-states/staging-web/admin.json route-secret-indexed-db 1ms
+       ✓ sanitizes artifacts, logs, execution logs, and steps at response boundaries 115ms
+       ✓ returns empty runs list 1ms
+       ✓ returns runs list 2ms
+       ✓ filters by status 1ms
+       ✓ filters by name 1ms
+       ✓ does not filter by legacy tag query parameters 1ms
+       ✓ filters by date range 1ms
+       ✓ supports pagination 1ms
+       ✓ filters by effective platform for target-driven runs instead of raw stored defaults 34ms
+       ✓ returns target metadata and target options for truthful tests-page filters 14ms
+       ✓ derives platform metadata from target registry when test YAML omits top-level platform 6ms
+       ✓ returns the existing { valid, errors } success shape for canonical test content 13ms
+       ✓ keeps the response shape when shared validation rejects legacy test ids 5ms
+       ✓ deletes a test file by test id for the tests-page bottom toolbar 7ms
+       ✓ returns run with steps 3ms
+       ✓ returns 404 for unknown run 0ms
+       ✓ serves video files from run-id directories 23ms
+       ✓ does not serve flat videos through run-id URLs 26ms
+       ✓ deletes a run tree and artifacts while preserving token event stats 23ms
+       ✓ preserves absolute video paths outside artifactsDir/videos 29ms
+       ✓ returns steps for a run 1ms
+       ✓ returns 404 for unknown run 0ms
+       ✓ normalizes queued files under configured workspace.testMatch 5ms
+       ✓ honors non-default workspace test and suite patterns 3ms
+       ✓ accepts user attributes and adds API internal attributes 6ms
+       ✓ rejects protected API attributes 1ms
+       ✓ strips client-controlled execution targets from queued metadata 1ms
+       ✓ rejects absolute queued files outside configured workspace patterns 1ms
+       ✓ rejects queued traversal paths outside the configured workspace 1ms
+       ✓ resolves test-viewer paths through configured workspace.testMatch 4ms
+       ✓ rejects dashboard-triggered run tags 1ms
+       ✓ normalizes trigger patterns against discovered configured workspace tests 4ms
+       ✓ uses global use.parallel for dashboard-triggered test files and ignores client parallel 14ms
+       ✓ lets test YAML use.parallel false override global use.parallel true 17ms
+       ✓ uses global use.parallel for pattern-triggered dashboard runs 11ms
+       ✓ rejects absolute trigger patterns outside configured workspace tests 1ms
+       ✓ rejects trigger pattern traversal outside the configured workspace 1ms
+       ✓ normalizes dashboard list workspace paths before enqueueing the run 4ms
+       ✓ rejects absolute test files outside configured workspace tests 2ms
+       ✓ rejects relative traversal test files outside the configured workspace 2ms
+       ✓ passes cache and memory overrides through to the queued args and labels BrowserStack explicitly 5ms
+       ✓ derives the queued platform from target metadata when the test file has no top-level platform 10ms
+       ✓ derives process timeout metadata from test YAML before config fallback 7ms
+       ✓ falls back to project config timeout when test YAML has no timeout 6ms
+       ✓ falls back to project config timeout when draft YAML cannot be parsed 13ms
+       ✓ ignores client-provided timeout fields when enqueueing trusted metadata 7ms
+       ✓ uses a slow-model-aware timeout for localhost compatible provider checks 55ms
+       ✓ keeps remote compatible provider checks on the remote connectivity timeout 2ms
+       ✓ reads services.cache.dir and purges target-driven mobile cache entries with the effective platform 11ms
+       ✓ resolves relative services.cache.dir from the config file directory 9ms
+       × deletes observations from configured services.memory.dir without touching the default root 53ms
+       ✓ returns statistics 1ms
+       ✓ filters stats by date range 0ms
+       ✓ includes CORS headers on API responses 0ms
+       ✓ handles OPTIONS preflight 0ms
+       ✓ returns 404 for unknown API paths 0ms
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > starts a local MCP HTTP endpoint by default
+Job queue started with 8 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > starts a local MCP HTTP endpoint by default
+MCP running locally at http://127.0.0.1:41119/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > starts a local MCP HTTP endpoint by default
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > keeps shared Appium alive until both overlapping Android and iOS runs complete
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > keeps shared Appium alive until both overlapping Android and iOS runs complete
+MCP running locally at http://127.0.0.1:36391/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > keeps shared Appium alive until both overlapping Android and iOS runs complete
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > respects services.mcp.enabled false
+Job queue started with 8 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > respects services.mcp.enabled false
+MCP disabled by services.mcp.enabled: false
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > respects services.mcp.enabled false
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > skips lifecycle analytics when privacy is enabled
+Job queue started with 8 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > skips lifecycle analytics when privacy is enabled
+MCP running locally at http://127.0.0.1:41441/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > skips lifecycle analytics when privacy is enabled
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > continues startup when lifecycle analytics capture rejects
+Job queue started with 8 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > continues startup when lifecycle analytics capture rejects
+MCP running locally at http://127.0.0.1:41085/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.mcp.test.ts > dashboard MCP startup > continues startup when lifecycle analytics capture rejects
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases only the cancelled mobile run lease through the process-close path
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+ ✓ src/__tests__/server.mcp.test.ts (4 tests) 2178ms
+     ✓ starts a local MCP HTTP endpoint by default  2090ms
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases only the cancelled mobile run lease through the process-close path
+MCP running locally at http://127.0.0.1:42367/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases only the cancelled mobile run lease through the process-close path
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails a timed-out run even when all persisted steps passed
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails a timed-out run even when all persisted steps passed
+MCP running locally at http://127.0.0.1:33619/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails a timed-out run even when all persisted steps passed
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails an incomplete exit even when the child process reports completed
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails an incomplete exit even when the child process reports completed
+MCP running locally at http://127.0.0.1:42003/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > fails an incomplete exit even when the child process reports completed
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > persists framework stderr as a failed process close
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > persists framework stderr as a failed process close
+MCP running locally at http://127.0.0.1:35305/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > persists framework stderr as a failed process close
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases a cancelled mobile lease once and starts the next queued mobile job
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases a cancelled mobile lease once and starts the next queued mobile job
+MCP running locally at http://127.0.0.1:43171/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > releases a cancelled mobile lease once and starts the next queued mobile job
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > shares Appium ownership between queued and live mobile sessions
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > shares Appium ownership between queued and live mobile sessions
+MCP running locally at http://127.0.0.1:33425/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > shares Appium ownership between queued and live mobile sessions
+Dashboard running at http://localhost:0
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > kills test processes before releasing leases and shutting Appium down on server close
+Job queue started with 2 concurrency slot(s)
+Appium lifecycle manager initialized (auto-start on first mobile test)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > kills test processes before releasing leases and shutting Appium down on server close
+MCP running locally at http://127.0.0.1:44549/mcp (Streamable HTTP, loopback only)
+
+stdout | src/__tests__/server.appium-ownership.test.ts > dashboard Appium ownership > kills test processes before releasing leases and shutting Appium down on server close
+Dashboard running at http://localhost:0
+
+ ✓ src/__tests__/server.appium-ownership.test.ts (8 tests) 439ms
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > ensureRunning > concurrent ensureRunning calls coalesce
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > ensureRunning > starts Appium with the resolved local executable
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > acquire increments refCount
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > second acquire increments refCount to 2
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > release decrements refCount
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > release decrements refCount
+[magenta][appium][/magenta] server kept alive leases=0 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > release shuts down when refCount hits 0 on managed
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > release shuts down when refCount hits 0 on managed
+[magenta][appium][/magenta] [yellow]stopped[/yellow]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > release does not shut down unmanaged Appium
+[magenta][appium][/magenta] external server left running leases=0 managed=false
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > shutdown force-kills regardless of refCount
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > shutdown force-kills regardless of refCount
+[magenta][appium][/magenta] [yellow]stopped[/yellow]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > acquireLease records one run lease with platform metadata
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > acquireLease records one run lease with platform metadata
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > multiple run leases contribute to total refCount
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > multiple run leases contribute to total refCount
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > multiple run leases contribute to total refCount
+[magenta][appium][/magenta] lease acquired run=run_ios_1 platform=ios leases=2 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease keeps managed Appium alive while another run lease remains
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease keeps managed Appium alive while another run lease remains
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease keeps managed Appium alive while another run lease remains
+[magenta][appium][/magenta] lease acquired run=run_ios_1 platform=ios leases=2 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease keeps managed Appium alive while another run lease remains
+[magenta][appium][/magenta] lease released run=run_android_1 platform=android reason=completed leases=1 managed=true
+[magenta][appium][/magenta] server kept alive leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease shuts down managed Appium when the last run lease releases
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease shuts down managed Appium when the last run lease releases
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease shuts down managed Appium when the last run lease releases
+[magenta][appium][/magenta] lease released run=run_android_1 platform=android reason=completed leases=0 managed=true
+[magenta][appium][/magenta] [yellow]stopped[/yellow]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease does not shut down unmanaged external Appium
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=false
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseLease does not shut down unmanaged external Appium
+[magenta][appium][/magenta] lease released run=run_android_1 platform=android reason=completed leases=0 managed=false
+[magenta][appium][/magenta] external server left running leases=0 managed=false
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > duplicate acquireLease for the same run does not double count
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > duplicate acquireLease for the same run does not double count
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > duplicate acquireLease for the same run does not double count
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseAllLeases releases each active run lease
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseAllLeases releases each active run lease
+[magenta][appium][/magenta] lease acquired run=run_android_1 platform=android leases=1 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseAllLeases releases each active run lease
+[magenta][appium][/magenta] lease acquired run=run_ios_1 platform=ios leases=2 managed=true
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > acquire / release > releaseAllLeases releases each active run lease
+[magenta][appium][/magenta] lease released run=run_android_1 platform=android reason=server-close leases=1 managed=true
+[magenta][appium][/magenta] server kept alive leases=1 managed=true
+[magenta][appium][/magenta] lease released run=run_ios_1 platform=ios reason=server-close leases=0 managed=true
+[magenta][appium][/magenta] [yellow]stopped[/yellow]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > log gating > suppresses stderr at normal logLevel
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+stdout | src/__tests__/appium-manager.test.ts > AppiumManager > log gating > shows stderr with colored prefix at debug logLevel
+[magenta][appium][/magenta] [green]started on :4723[/green]
+
+ ✓ src/__tests__/ws-handler.test.ts (16 tests) 438ms
+ ✓ src/__tests__/appium-manager.test.ts (44 tests) 385ms
+ ✓ src/__tests__/dashboard-reporter.test.ts (49 tests) 342ms
+ ✓ src/__tests__/routes.analytics-events.test.ts (9 tests) 397ms
+ ✓ src/__tests__/database.test.ts (80 tests) 353ms
+ ✓ src/__tests__/config-manager.test.ts (16 tests) 220ms
+ ✓ src/__tests__/job-queue.test.ts (25 tests) 154ms
+ ✓ src/__tests__/routes.insights-breakdowns.test.ts (5 tests) 291ms
+ ✓ src/__tests__/automation-loader.test.ts (21 tests) 127ms
+ ✓ src/__tests__/routes.runs.test.ts (21 tests) 126ms
+ ✓ src/__tests__/run-id-migration.test.ts (2 tests) 164ms
+ ✓ src/__tests__/agent-rules-routes.test.ts (12 tests) 186ms
+ ✓ src/__tests__/timeout-inventory.test.ts (1 test) 79ms
+ ✓ src/__tests__/session-manager.test.ts (8 tests) 13ms
+ ✓ src/live-editor/__tests__/mobile-bootstrap.test.ts (8 tests) 40ms
+ ✓ src/live-editor/__tests__/live-session.auth-state.test.ts (5 tests) 56ms
+ ✓ src/live-editor/__tests__/session-manager.counter.test.ts (8 tests | 1 skipped) 10ms
+ ✓ src/__tests__/database.insights-breakdowns.test.ts (4 tests) 32ms
+ ✓ src/__tests__/log-storage.test.ts (19 tests) 135ms
+ ✓ src/__tests__/test-file-manager.ids.test.ts (1 test) 38ms
+ ✓ src/__tests__/runtime-db-path.test.ts (4 tests) 17ms
+ ✓ src/__tests__/test-runner.test.ts (14 tests) 7298ms
+     ✓ heartbeat events keep stale detection from killing an active process  4519ms
+     ✓ heartbeat stale detection marks process failed after threshold  1503ms
+
+ Test Files  5 failed | 24 passed (29)
+      Tests  19 failed | 528 passed | 1 skipped (548)
+   Start at  17:37:14
+   Duration  8.38s (transform 5.67s, setup 0ms, import 22.42s, tests 15.63s, environment 5ms)
+

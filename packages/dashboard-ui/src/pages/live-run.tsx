@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/resizable"
 import { DetailSkeleton } from "@/components/page-skeleton"
 import { EmptyState } from "@/components/empty-state"
-import { HookDetailPanel } from "@/components/run-detail/hook-detail-panel"
+import { ExecutionDetailPanel } from "@/components/run-detail/execution-detail-panel"
 import { StepTree } from "@/components/run-detail/step-tree"
 import { TabPanels } from "@/components/run-detail/tab-panels"
 import type { ScreenshotSide } from "@/components/run-detail/tab-overview"
@@ -561,10 +561,6 @@ export default function LiveRunPage() {
                   steps={displaySteps}
                   selection={selection}
                   onSelect={handleSelect}
-                  suiteTests={suiteTests.length > 0 ? suiteTests : undefined}
-                  suiteSelectedView={suiteSelectedView}
-                  setupHooks={setupHooks}
-                  teardownHooks={teardownHooks}
                   inlineLogs={inlineLogs}
                 />
               ) : (
@@ -579,10 +575,8 @@ export default function LiveRunPage() {
 
           <ResizablePanel defaultSize={65} minSize={30}>
             <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-              {selection?.type === "hook" && selectedHookLog ? (
-                <HookDetailPanel log={selectedHookLog} />
-              ) : selection?.type === "execution" && selectedExecutionLog ? (
-                <HookDetailPanel log={selectedExecutionLog} />
+              {selection?.type === "execution" && selectedExecutionLog ? (
+                <ExecutionDetailPanel log={selectedExecutionLog} />
               ) : (
                 <TabPanels
                   activeTab={activeTab}

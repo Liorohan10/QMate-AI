@@ -826,6 +826,15 @@ export class DashboardDatabase {
     return rows.map(r => this.mapStepRow(r))
   }
 
+  getStepsByTestName(testName: string): StepRow[] {
+    const rows = this.db.prepare(`
+      SELECT steps.* FROM steps
+      JOIN runs ON steps.run_id = runs.id
+      WHERE runs.name = ?
+    `).all(testName) as Record<string, unknown>[]
+    return rows.map(r => this.mapStepRow(r))
+  }
+
   getCapturedVariableNames(testId: string): string[] {
     const rows = this.db.prepare(`
       SELECT DISTINCT captured_variables FROM steps

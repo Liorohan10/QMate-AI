@@ -4,9 +4,6 @@ workspace:
     - tests/web/**/*.yaml
     - tests/mobile/**/*.yaml
     - tests/farm/**/*.yaml
-  suiteMatch:
-    - suites/**/*.suite.yaml
-  hooksFile: hooks.yaml
   agentRules: ./agent-rules.md
   envFile: .env
   secretsFile: .env.secrets.local
@@ -23,10 +20,10 @@ services:
     dir: agent-qa-memory
 registry:
   llms:
-    - name: openai-gpt4o
+    - name: gemini-flash
       provider: openai-compatible
-      model: gpt-5.4-mini
-      baseURL: https://api.openai.com/v1
+      model: genailab-maas-gpt-5.4
+      baseURL: https://genailab.tcs.in
   targets:
     wai-bad:
       platform: web
@@ -35,6 +32,6 @@ registry:
       platform: web
       url: https://www.genesisenergy.co.nz/join
 use:
-  llm: openai-gpt4o
+  llm: gemini-flash
   mobile:
     appState: preserve

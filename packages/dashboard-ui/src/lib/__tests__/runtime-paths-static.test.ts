@@ -57,8 +57,6 @@ describe('runtime path static contract', () => {
     expect(demoConfig).toContain('tests/web/**/*.yaml')
     expect(demoConfig).toContain('tests/mobile/**/*.yaml')
     expect(demoConfig).toContain('tests/farm/**/*.yaml')
-    expect(demoConfig).toContain('suites/**/*.suite.yaml')
-    expect(demoConfig).toContain('hooksFile: hooks.yaml')
     expect(demoConfig).toContain('agentRules: ./agent-rules.md')
     expect(demoConfig).toContain('envFile: .env')
     expect(demoConfig).toContain('secretsFile: .env.secrets.local')
@@ -117,8 +115,6 @@ describe('runtime path static contract', () => {
       expect(uiSource).toContain(path)
     }
     expect(uiSource).toContain('routes.testNew')
-    expect(uiSource).toContain('routes.suiteNew')
-    expect(uiSource).toContain('routes.hookNew')
     expect(uiSource).toContain('Memory Directory')
   })
 
@@ -132,8 +128,6 @@ describe('runtime path static contract', () => {
   it('keeps non-default workspace resolver fixtures covered', () => {
     expect(workspaceResolverTest).toContain('specs/web/**/*.yaml')
     expect(workspaceResolverTest).toContain('specs/mobile/**/*.yaml')
-    expect(workspaceResolverTest).toContain('cases/**/*.suite.yaml')
-    expect(workspaceResolverTest).toContain('runtime/hooks/custom-hooks.yaml')
     expect(workspaceResolverTest).toContain('config/env/public.env')
     expect(workspaceResolverTest).toContain('config/env/secrets.local')
   })

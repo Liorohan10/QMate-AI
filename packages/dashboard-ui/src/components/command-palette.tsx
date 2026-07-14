@@ -1,17 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router"
-import { Play, FileText, FolderOpen, BarChart3, SlidersHorizontal, Search, Webhook, BrainCircuit, LifeBuoy } from "lucide-react"
+import { Play, FileText, BarChart3, SlidersHorizontal, Search, BrainCircuit, LifeBuoy } from "lucide-react"
 import {
-  fetchHookCatalog,
   fetchMemoryCatalog,
   fetchRuns,
   fetchTestFiles,
-  fetchSuiteFiles,
-  type HookCatalogEntry,
   type MemoryCatalogProduct,
   type RunRow,
   type TestFileInfo,
-  type SuiteFileInfo,
 } from "@/lib/api"
 import { getConfigCommandLabel, searchConfigNavigationItems } from "@/lib/config-navigation"
 import { routes } from "@/lib/routes"
@@ -29,8 +25,6 @@ import {
 const pages = [
   { title: "Runs", url: routes.runs, icon: Play },
   { title: "Tests", url: routes.tests, icon: FileText },
-  { title: "Hooks", url: routes.hooks, icon: Webhook },
-  { title: "Suites", url: routes.suites, icon: FolderOpen },
   { title: "Memory", url: routes.memory, icon: BrainCircuit },
   { title: "Insights", url: routes.insights, icon: BarChart3 },
   { title: "Config", url: routes.config, icon: SlidersHorizontal },
@@ -43,30 +37,16 @@ const createActions = [
     icon: FileText,
     value: "create add new test tests yaml",
   },
-  {
-    title: "New Suite",
-    url: routes.suiteNew,
-    icon: FolderOpen,
-    value: "create add new suite suites yaml",
-  },
-  {
-    title: "Create Hook",
-    url: routes.hookNew,
-    icon: Webhook,
-    value: "create add new hook hooks setup teardown inline",
-  },
 ]
 
 interface SearchResults {
   runs: RunRow[]
   tests: TestFileInfo[]
-  hooks: HookCatalogEntry[]
-  suites: SuiteFileInfo[]
   memoryProducts: MemoryCatalogProduct[]
 }
 
 function emptySearchResults(): SearchResults {
-  return { runs: [], tests: [], hooks: [], suites: [], memoryProducts: [] }
+  return { runs: [], tests: [], memoryProducts: [] }
 }
 
 function summarizeTargetReferences(targetReferences: string[]) {
@@ -120,11 +100,9 @@ export function CommandPalette() {
     }
     if (requestId === searchRequestRef.current) setIsSearching(true)
     try {
-      const [runsData, testsData, hooksData, suitesData, memoryData] = await Promise.all([
+      const [runsData, testsData, memoryData] = await Promise.all([
         fetchRuns({ name: query, limit: 5 }),
         fetchTestFiles(),
-        fetchHookCatalog(),
-        fetchSuiteFiles(),
         fetchMemoryCatalog().catch(() => ({ products: [] })),
       ])
       const lowerQuery = query.toLowerCase()
@@ -137,12 +115,6 @@ export function CommandPalette() {
           test.platform,
         ], lowerQuery))
         .slice(0, 5)
-      const filteredHooks = hooksData.hooks
-        .filter((hook) => matchesCommandQuery([hook.name, hook.file, hook.id], lowerQuery))
-        .slice(0, 5)
-      const filteredSuites = suitesData.files
-        .filter((suite) => matchesCommandQuery([suite.name, suite.path, suite.suiteId], lowerQuery))
-        .slice(0, 5)
       const filteredMemoryProducts = memoryData.products
         .filter((product) =>
           product.productKey.toLowerCase().includes(lowerQuery)
@@ -153,8 +125,6 @@ export function CommandPalette() {
       setSearchResults({
         runs: runsData.runs,
         tests: filteredTests,
-        hooks: filteredHooks,
-        suites: filteredSuites,
         memoryProducts: filteredMemoryProducts,
       })
     } catch {
@@ -244,7 +214,7 @@ export function CommandPalette() {
         <CommandSeparator />
         <CommandGroup heading="Help">
           <CommandItem
-            value="help take product tour onboarding agent-qa"
+            value="help take product tour onboarding Titan-QA"
             data-tour-id="tour-command-product-tour"
             onSelect={handleTakeProductTour}
           >
@@ -299,54 +269,6 @@ export function CommandPalette() {
           </>
         )}
 
-        {searchResults.hooks.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Hooks">
-              {searchResults.hooks.map((hook) => (
-                <CommandItem
-                  key={hook.id}
-                  value={buildCommandValue("hook", hook.id, hook.name, hook.file)}
-                  onSelect={() => handleSelect(routes.hookView(hook.id))}
-                >
-                  <Webhook />
-                  <span className="min-w-0 flex-1 truncate">{hook.name}</span>
-                  <span className="ml-auto max-w-[50%] truncate text-xs text-muted-foreground" title={hook.file}>
-                    {hook.file}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
-        )}
-
-        {searchResults.suites.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Suites">
-              {searchResults.suites.map((suite) =>
-                suite.suiteId ? (
-                  <CommandItem
-                    key={suite.suiteId}
-                    value={buildCommandValue("suite", suite.suiteId, suite.name, suite.path)}
-                    onSelect={() => handleSelect(routes.suiteView(suite.suiteId!))}
-                  >
-                    <FolderOpen />
-                    <span className="min-w-0 flex-1 truncate" title={suite.name || suite.path}>
-                      {suite.name || suite.path}
-                    </span>
-                    {suite.path ? (
-                      <span className="ml-auto max-w-[50%] truncate text-xs text-muted-foreground" title={suite.path}>
-                        {suite.path}
-                      </span>
-                    ) : null}
-                  </CommandItem>
-                ) : null
-              )}
-            </CommandGroup>
-          </>
-        )}
-
         {searchResults.memoryProducts.length > 0 && (
           <>
             <CommandSeparator />
@@ -362,12 +284,12 @@ export function CommandPalette() {
                     <BrainCircuit />
                     <span className="truncate">{product.productKey}</span>
                     {targetSummary && (
-                      <span
-                        className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground"
-                        title={product.targetReferences.join(", ")}
-                      >
-                        {targetSummary}
-                      </span>
+                       <span
+                         className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground"
+                         title={product.targetReferences.join(", ")}
+                       >
+                         {targetSummary}
+                       </span>
                     )}
                   </CommandItem>
                 )

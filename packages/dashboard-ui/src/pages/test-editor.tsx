@@ -855,14 +855,10 @@ export default function TestEditorPage() {
       isCreateMode={isCreateMode}
       showLiveStepActions={hasLiveSession}
       canRunLiveStep={liveConnectionState === "connected" && formState !== null}
-      canRunLiveHook={liveConnectionState === "connected" && formState !== null}
       liveEditorSteps={liveEditor.steps}
       draftStepIds={builderStepIds}
-      liveSetupHooks={liveEditor.setupHooks}
-      liveTeardownHooks={liveEditor.teardownHooks}
       onRunLiveStep={handleRunLiveStep}
       onCancelLiveStep={handleCancelLiveStep}
-      onRunLiveHook={handleRunLiveHook}
       openStepSettingsId={builderStepSettingsId}
       onOpenStepSettingsChange={setBuilderStepSettingsId}
       selection={liveSelection}

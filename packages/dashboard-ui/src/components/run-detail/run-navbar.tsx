@@ -46,13 +46,8 @@ export function RunNavbar({ run, steps, shortcutsOpen, onToggleShortcuts, onOpen
   const totalTokens = steps.reduce((sum, s) => sum + (s.totalTokens ?? 0), 0)
   const totalPrompt = steps.reduce((sum, s) => sum + (s.promptTokens ?? 0), 0)
   const totalCompletion = steps.reduce((sum, s) => sum + (s.completionTokens ?? 0), 0)
-  const isSuiteParent = run.suiteId != null && run.parentRunId == null
-  const sourceHref = isSuiteParent && run.suiteId
-    ? routes.suiteView(run.suiteId)
-    : run.testId
-      ? routes.testView(run.testId)
-      : null
-  const sourceLabel = isSuiteParent && run.suiteId ? "Open suite" : "Open test"
+  const sourceHref = run.testId ? routes.testView(run.testId) : null
+  const sourceLabel = "Open test"
 
   const videoSrc = resolveVideoSrc(run.id, run.videoPath)
   const farmUrl = (run.metadata as Record<string, unknown>)?.farmSessionUrl as string | undefined

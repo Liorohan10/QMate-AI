@@ -16,6 +16,7 @@ import {
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import type { LivePhase } from '@/hooks/use-execution-events'
+import { StepCategoryBadge, parseStepCategory } from './step-category-badge'
 
 export interface EditableStep {
   id: string
@@ -123,6 +124,10 @@ export function LiveEditableStepCard({
         <span className="shrink-0 text-xs text-muted-foreground font-mono mt-0.5">
           #{index + 1}
         </span>
+        {(() => {
+          const { category } = parseStepCategory(step.instruction)
+          return <StepCategoryBadge category={category} />
+        })()}
 
         <textarea
           ref={textareaRef}

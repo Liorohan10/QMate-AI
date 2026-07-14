@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ConfigManager } from '../config/index.js'
 import { MemoryCatalogManager } from '../memory/memory-catalog-manager.js'
-import { SuiteFileManager } from '../tests/suite-file-manager.js'
 import { TestFileManager } from '../tests/test-file-manager.js'
 
 const PRODUCT_ALPHA = 'alpha-product'
@@ -44,9 +43,6 @@ async function createWorkspace(options: { memoryDir?: string } = {}) {
       'workspace:',
       '  testMatch:',
       '    - tests/**/*.yaml',
-      '  suiteMatch:',
-      '    - suites/**/*.suite.yaml',
-      '  hooksFile: hooks.yaml',
       '  agentRules: agent-rules.md',
       '  envFile: .env',
       '  secretsFile: .env.secrets.local',
@@ -293,7 +289,6 @@ describe('MemoryCatalogManager', () => {
     const manager = new MemoryCatalogManager({ configManager, configPath })
 
     const testListSpy = vi.spyOn(TestFileManager.prototype, 'list')
-    const suiteListSpy = vi.spyOn(SuiteFileManager.prototype, 'list')
 
     const beforeMissingTest = await readFile(join(workspaceDir, 'tests/alpha/no-id.yaml'), 'utf-8')
     const beforeMissingSuite = await readFile(join(workspaceDir, 'suites/alpha/no-id.suite.yaml'), 'utf-8')
@@ -303,23 +298,22 @@ describe('MemoryCatalogManager', () => {
 
     expect(alpha).toMatchObject({
       productKey: PRODUCT_ALPHA,
-      observationCount: 3,
+      observationCount: 2,
       scopeCounts: {
         product: 1,
-        suite: 1,
+        suite: 0,
         test: 1,
       },
       freshness: '2026-04-22T08:00:00.000Z',
-      sourceCoverage: 2,
+      sourceCoverage: 1,
       targetReferences: ['alpha-android', 'alpha-target'],
       sourceCounts: {
-        suite: 1,
-        test: 2,
+        suite: 0,
+        test: 1,
       },
     })
 
     expect(testListSpy).not.toHaveBeenCalled()
-    expect(suiteListSpy).not.toHaveBeenCalled()
     expect(await readFile(join(workspaceDir, 'tests/alpha/no-id.yaml'), 'utf-8')).toBe(beforeMissingTest)
     expect(await readFile(join(workspaceDir, 'suites/alpha/no-id.suite.yaml'), 'utf-8')).toBe(beforeMissingSuite)
   })
@@ -366,18 +360,18 @@ describe('MemoryCatalogManager', () => {
 
     expect(detail).toMatchObject({
       productKey: PRODUCT_ALPHA,
-      observationCount: 3,
+      observationCount: 2,
       scopeCounts: {
         product: 1,
-        suite: 1,
+        suite: 0,
         test: 1,
       },
       freshness: '2026-04-22T08:00:00.000Z',
-      sourceCoverage: 2,
+      sourceCoverage: 1,
       targetReferences: ['alpha-android', 'alpha-target'],
       sourceCounts: {
-        suite: 1,
-        test: 2,
+        suite: 0,
+        test: 1,
       },
       observations: [
         {
@@ -400,34 +394,6 @@ describe('MemoryCatalogManager', () => {
             label: 'Alpha login',
             targetName: 'alpha-target',
             href: `/test/${TEST_ALPHA}`,
-          },
-        },
-        {
-          id: OBS_SUITE,
-          title: 'Smoke suite: authenticated landing flow is reused across runs',
-          content: 'The alpha smoke suite reuses the authenticated landing flow.',
-          trust: 0.76,
-          created: '2026-04-19T08:00:00.000Z',
-          last_confirmed: '2026-04-21T08:00:00.000Z',
-          updated: '2026-04-21T09:15:00.000Z',
-          confirmed_count: 3,
-          contradicted_count: 0,
-          source_test: TEST_GAMMA,
-          scope: 'suite',
-          scopeId: SUITE_ALPHA,
-          scopeRef: {
-            kind: 'suite',
-            id: SUITE_ALPHA,
-            label: 'Alpha smoke',
-            targetName: 'alpha-target',
-            href: `/suite/${SUITE_ALPHA}`,
-          },
-          sourceTestRef: {
-            kind: 'source_test',
-            id: TEST_GAMMA,
-            label: 'Alpha smoke seed',
-            targetName: 'alpha-target',
-            href: `/test/${TEST_GAMMA}`,
           },
         },
         {
@@ -467,8 +433,8 @@ describe('MemoryCatalogManager', () => {
         },
         suite: {
           scope: 'suite',
-          observationCount: 1,
-          freshness: '2026-04-21T08:00:00.000Z',
+          observationCount: 0,
+          freshness: null,
         },
         test: {
           scope: 'test',
@@ -479,7 +445,7 @@ describe('MemoryCatalogManager', () => {
     })
 
     expect(detail!.scopes.test.scopeIds).toEqual([TEST_ALPHA])
-    expect(detail!.scopes.suite.scopeIds).toEqual([SUITE_ALPHA])
+    expect(detail!.scopes.suite.scopeIds).toEqual([])
     expect(new Set(detail!.observations.map((observation) => observation.id)).size).toBe(detail!.observations.length)
     expect(detail!.invalidFiles).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -504,7 +470,6 @@ describe('MemoryCatalogManager', () => {
     const manager = new MemoryCatalogManager({ configManager, configPath })
 
     const productScope = await manager.readScopedObservations('product', PRODUCT_ALPHA)
-    const suiteScope = await manager.readScopedObservations('suite', SUITE_ALPHA)
     const testScope = await manager.readScopedObservations('test', TEST_ALPHA)
 
     expect(productScope).toMatchObject({
@@ -521,30 +486,6 @@ describe('MemoryCatalogManager', () => {
           label: 'Alpha login',
           targetName: 'alpha-target',
           href: `/test/${TEST_ALPHA}`,
-        },
-      }],
-      invalidFiles: [],
-    })
-    expect(suiteScope).toMatchObject({
-      scope: 'suite',
-      scopeId: SUITE_ALPHA,
-      observations: [{
-        id: OBS_SUITE,
-        title: 'Smoke suite: authenticated landing flow is reused across runs',
-        updated: '2026-04-21T09:15:00.000Z',
-        scopeRef: {
-          kind: 'suite',
-          id: SUITE_ALPHA,
-          label: 'Alpha smoke',
-          targetName: 'alpha-target',
-          href: `/suite/${SUITE_ALPHA}`,
-        },
-        sourceTestRef: {
-          kind: 'source_test',
-          id: TEST_GAMMA,
-          label: 'Alpha smoke seed',
-          targetName: 'alpha-target',
-          href: `/test/${TEST_GAMMA}`,
         },
       }],
       invalidFiles: [],

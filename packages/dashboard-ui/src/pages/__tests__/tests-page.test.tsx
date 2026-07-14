@@ -551,7 +551,7 @@ describe("TestsPage", () => {
     expect(getLocationPathname()).toBe("/tests")
     expect(loginRow?.querySelector<HTMLInputElement>('input[aria-label="Select row"]')?.checked).toBe(true)
     expect(container?.textContent).toContain("1 selected")
-    expect(getSharedColumnContract()[0]).toEqual({ id: "select", width: "2.75rem" })
+    expect(getSharedColumnContract()[0]).toEqual({ id: "select", width: "48px" })
   })
 
   it("selects an unfocused test row on the first checkbox click after browser focus", async () => {
@@ -629,12 +629,12 @@ describe("TestsPage", () => {
     expect(signupRow?.className).toContain("ring-primary/60")
 
     expect(getSharedColumnContract()).toEqual([
-      { id: "select", width: "2.75rem" },
+      { id: "select", width: "48px" },
       { id: "name", width: "" },
-      { id: "target", width: "10rem" },
-      { id: "platform", width: "6.25rem" },
-      { id: "passRate", width: "7.25rem" },
-      { id: "lastRun", width: "9rem" },
+      { id: "targetName", width: "" },
+      { id: "platform", width: "120px" },
+      { id: "passRate", width: "120px" },
+      { id: "lastRun", width: "160px" },
     ])
 
     const legacyWidthClasses = Array.from(container?.querySelectorAll("th, td") ?? []).filter((cell) =>

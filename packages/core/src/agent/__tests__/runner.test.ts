@@ -584,9 +584,9 @@ describe('runTestWithRetry', () => {
       async observe() { return makeScreenState() },
       async execute() {
         executeCount++
-        // First 3 calls fail (step fails in first test run with consecutive failure limit),
+        // First 6 calls fail (step + healing fail in first test run),
         // then succeed on retry (second test run)
-        if (executeCount <= 3) return { success: false, error: 'Flaky test' }
+        if (executeCount <= 6) return { success: false, error: 'Flaky test' }
         return { success: true }
       },
     }

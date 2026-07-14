@@ -20,6 +20,7 @@ import type { StepRow } from "@/lib/api"
 import { fromStepRow } from "@/lib/display-step"
 import { cn, formatDuration } from "@/lib/utils"
 import { ReasoningPipeline } from "@/components/reasoning-pipeline"
+import { StepCategoryBadge, parseStepCategory } from "./step-category-badge"
 
 interface StepCardProps {
   step: StepRow
@@ -81,6 +82,7 @@ function formatAction(action: unknown): { type: string; target: string } | null 
 export function StepCard({ step, isSelected, onSelect }: StepCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const actionInfo = formatAction(step.action)
+  const { category, cleanName } = parseStepCategory(step.name)
 
   return (
     <Collapsible
@@ -111,7 +113,8 @@ export function StepCard({ step, isSelected, onSelect }: StepCardProps) {
           <TooltipContent>{statusLabel(step.status)}</TooltipContent>
         </Tooltip>
         <span className="flex-1 min-w-0 text-sm font-medium leading-snug break-words">
-          {step.name}
+          <StepCategoryBadge category={category} />
+          {cleanName}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>

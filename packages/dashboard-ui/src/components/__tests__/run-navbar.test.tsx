@@ -135,25 +135,7 @@ describe("RunNavbar", () => {
     expect(container.textContent).not.toContain("t_login")
   })
 
-  it("links suite runs to the canonical suite page in a new tab", () => {
-    mount(
-      <RunNavbar
-        run={{ ...baseRun, suiteId: "s_smoke", name: "Suite run" }}
-        steps={[]}
-        shortcutsOpen={false}
-        onToggleShortcuts={() => {}}
-      />,
-    )
-
-    const link = container.querySelector('a[aria-label="Open suite"]') as HTMLAnchorElement | null
-    expect(link).not.toBeNull()
-    expect(link?.getAttribute("href")).toBe("/suite/s_smoke")
-    expect(link?.getAttribute("target")).toBe("_blank")
-    expect(link?.getAttribute("rel")).toBe("noopener noreferrer")
-    expect(container.textContent).not.toContain("s_smoke")
-  })
-
-  it("omits the source arrow when no test or suite id is available", () => {
+  it("omits the source arrow when no test id is available", () => {
     mount(
       <RunNavbar
         run={{ ...baseRun, name: "Detached run" }}
@@ -164,7 +146,6 @@ describe("RunNavbar", () => {
     )
 
     expect(container.querySelector('a[aria-label="Open test"]')).toBeNull()
-    expect(container.querySelector('a[aria-label="Open suite"]')).toBeNull()
   })
 
   it("documents the screenshot Before and After shortcuts", () => {
@@ -248,36 +229,5 @@ describe("RunNavbar", () => {
     expect(onToggleShortcuts).toHaveBeenCalledTimes(1)
   })
 
-  it("reruns suite parents with the stored suite file path", async () => {
-    const triggerRunMock = vi.mocked(triggerRun)
-    triggerRunMock.mockResolvedValue({ runId: "run_rerun", status: "queued" })
 
-    mount(
-      <RunNavbar
-        run={{
-          ...baseRun,
-          name: "Sample Basic suite",
-          filePath: "suites/sample-basic.suite.yaml",
-          suiteId: "s_sample_basic",
-          parentRunId: null,
-        }}
-        steps={[]}
-        shortcutsOpen={false}
-        onToggleShortcuts={() => {}}
-      />,
-    )
-
-    const trigger = container.querySelector('button[aria-label="Re-run"]') as HTMLButtonElement | null
-    expect(trigger).not.toBeNull()
-
-    await act(async () => {
-      trigger!.click()
-      await Promise.resolve()
-    })
-
-    expect(triggerRunMock).toHaveBeenCalledWith({
-      file: "suites/sample-basic.suite.yaml",
-      local: true,
-    })
-  })
 })

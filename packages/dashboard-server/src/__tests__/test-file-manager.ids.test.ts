@@ -30,8 +30,6 @@ describe('TestFileManager missing-id backfill', () => {
       config: {
         workspace: {
           testMatch: ['specs/web/**/*.yaml'],
-          suiteMatch: ['cases/**/*.suite.yaml'],
-          hooksFile: 'runtime/hooks/custom-hooks.yaml',
           agentRules: 'agent-rules.md',
           envFile: '.env',
           secretsFile: '.env.secrets.local',

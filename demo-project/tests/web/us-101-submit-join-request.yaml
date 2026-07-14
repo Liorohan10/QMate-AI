@@ -1,0 +1,52 @@
+test-id: t_aly-fifo-foo-dose-ware-nature-quake-drop-basket-hasta
+name: US-101 Submit Residential Join Request
+target: genesis-join
+use:
+  browser:
+    name: chromium
+    headless: true
+    viewport:
+      width: 1280
+      height: 720
+  cache: false
+  timeout:
+    step: 3m
+    test: 30m
+context: |
+  The residential customer onboarding web app is available at https://www.genesisenergy.co.nz/join.
+  The test is executed as an anonymous customer starting from a fresh session.
+  The goal is to verify US-101: Submit Residential Join Request.
+  The user completes all details up to the terms page, attempts to submit without checking the terms checkbox (triggering a validation error), then checks it, submits successfully, and is redirected to the success page.
+steps:
+  - Verify the page heading says "What's your address?"
+  - Type "100 Queen Street, Auckland Central" into the address search input
+  - Click the matching address suggestion for the valid test address
+  - Verify the page shows headings for "ICP Address" and "ICP Number for Electricity"
+  - Click the Continue button
+  - Verify the next page asks "What energy types are you looking for?"
+  - Click the "Electricity Only" button
+  - Click the Continue button
+  - Verify the plans page heading says "Which plan works for you?"
+  - Verify the plans page shows the available electricity plan options
+  - Click the "Select PowerHome plan" button
+  - Verify the PowerHome plan is highlighted as selected
+  - Click the Continue button
+  - Verify the contact details form is displayed
+  - Select "Mr" as the Title
+  - Type "John" into the First Name field
+  - Type "Doe" into the Last Name field
+  - Type "01/01/1990" into the Date of Birth field
+  - Type "0211234567" into the Mobile field
+  - Type "john.doe@example.com" into the Email field
+  - Click "Yes" for the New Zealand driver's licence question
+  - Type "AA123456" into the Driver's Licence Number field
+  - Type "500" into the Driver's Licence Card Number or Version field
+  - Click the Continue button
+  - Verify the property details step is loaded
+  - Click the Continue button
+  - Verify the payment and terms step is loaded
+  - Click the Sign up now button without checking the terms and conditions checkbox
+  - Verify that form submission is blocked and a terms validation error appears saying "Please accept terms and conditions"
+  - Click on the terms and conditions checkbox to check it
+  - Click the Sign up now button
+  - Verify that the success page has loaded successfully with a path ending in "/residential/success"

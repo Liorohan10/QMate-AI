@@ -220,7 +220,7 @@ function checkSecretsFile(config: Record<string, unknown> | null, configPath: st
 function checkWorkspaceSupportFiles(config: Record<string, unknown> | null, configPath: string): DoctorCheck {
   return {
     name: 'Workspace files',
-    fixInstructions: 'Create the files configured by workspace.hooksFile, workspace.agentRules, and workspace.envFile.',
+    fixInstructions: 'Create the files configured by workspace.agentRules and workspace.envFile.',
     check: async () => {
       if (!config) {
         return { status: 'skip', message: 'no config' }
@@ -232,7 +232,6 @@ function checkWorkspaceSupportFiles(config: Record<string, unknown> | null, conf
       }
 
       const missing = [
-        ['workspace.hooksFile', resolved.workspace.hooksFile],
         ['workspace.agentRules', resolved.workspace.agentRules],
         ['workspace.envFile', resolved.workspace.envFile],
       ] as const
@@ -245,29 +244,11 @@ function checkWorkspaceSupportFiles(config: Record<string, unknown> | null, conf
         }
       }
 
-      return { status: 'pass', message: 'hooks, agent rules, and env file found' }
+      return { status: 'pass', message: 'agent rules and env file found' }
     },
   }
 }
 
-function checkDocker(): DoctorCheck {
-  return {
-    name: 'Docker',
-    fixInstructions: 'Install Docker Desktop from https://docker.com/ and ensure the daemon is running',
-    check: async () => {
-      try {
-        const { checkDockerAvailable } = await import('@vostride/agent-qa-core')
-        const available = await checkDockerAvailable()
-        if (available) {
-          return { status: 'pass', message: 'Docker daemon running' }
-        }
-        return { status: 'warn', message: 'Docker not available (hooks require Docker)' }
-      } catch {
-        return { status: 'warn', message: 'Docker not available (hooks require Docker)' }
-      }
-    },
-  }
-}
 
 function checkLLMApiKey(config: Record<string, unknown> | null): DoctorCheck {
   return {
@@ -551,17 +532,9 @@ function checkTestDiscovery(config: Record<string, unknown> | null, configPath: 
         if (!resolved.ok) {
           return { status: 'fail', message: resolved.error }
         }
-        const parts: string[] = []
-
-        const [testFiles, suiteFiles] = await Promise.all([
-          discoverWorkspaceFiles({ workspace: resolved.workspace, kind: 'test' }),
-          discoverWorkspaceFiles({ workspace: resolved.workspace, kind: 'suite' }),
-        ])
-        parts.push(`${testFiles.length} test file(s)`)
-        parts.push(`${suiteFiles.length} suite file(s)`)
-
-        const total = parts.join(', ')
-        if (parts.every(p => p.startsWith('0 '))) {
+        const testFiles = await discoverWorkspaceFiles({ workspace: resolved.workspace, kind: 'test' })
+        const total = `${testFiles.length} test file(s)`
+        if (testFiles.length === 0) {
           return { status: 'warn', message: `no files found — ${total}` }
         }
         return { status: 'pass', message: total }
@@ -628,7 +601,6 @@ export function createDoctorCommand(): Command {
         checkConfigValidation(config),
         checkSecretsFile(config, configPath),
         checkWorkspaceSupportFiles(config, configPath),
-        checkDocker(),
         checkLLMApiKey(config),
         checkSubscriptionAuth(config),
         checkLLMConnection(config),

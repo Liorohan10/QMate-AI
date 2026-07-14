@@ -48,6 +48,3 @@ export {
 export { ActionPlanSchema } from './action-schema.js'
 export type { ActionPlan } from './action-schema.js'
 
-export { SuiteDefinitionSchema, SuiteTestEntrySchema } from './suite-schema.js'
-
-export { HookDefinitionSchema, HooksFileSchema } from '../hooks/schema.js'

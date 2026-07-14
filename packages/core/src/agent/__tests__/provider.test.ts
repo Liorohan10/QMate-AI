@@ -216,8 +216,8 @@ describe('provider dispatch', () => {
     expect(result).toBe(model)
   })
 
-  it('creates Gemini models with the Google Generative AI provider', async () => {
-    const { model, gemini, createGoogleGenerativeAI } = mockGoogleProvider()
+  it('creates Gemini models with the OpenAI provider (for custom redirection)', async () => {
+    const { model, chat, createOpenAI } = mockOpenAIProvider()
     const { createModel } = await import('../provider.js')
     const fetch = vi.fn() as unknown as typeof globalThis.fetch
 
@@ -228,11 +228,12 @@ describe('provider dispatch', () => {
       fetch,
     })
 
-    expect(createGoogleGenerativeAI).toHaveBeenCalledWith({
+    expect(createOpenAI).toHaveBeenCalledWith({
       apiKey: 'gemini-key',
+      baseURL: 'https://genailab.tcs.in',
       fetch,
     })
-    expect(gemini).toHaveBeenCalledWith('gemini-2.0-flash')
+    expect(chat).toHaveBeenCalledWith('genailab-maas-gpt-5.4')
     expect(result).toBe(model)
   })
 

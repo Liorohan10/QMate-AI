@@ -10,7 +10,7 @@ import { resolveTarget, type ResolvedTarget } from '../targets.js'
 import { resolveDevice, loadLocalBindings, resolveProviderCredentials, type ResolvedDevice } from '../devices.js'
 import { applyResolvedAuthToModelConfig, resolveLLMModels, resolveModelAuth } from '../llm-utils.js'
 import { formatInstallBrowsersRetryCommand, type BrowserInstallSelection } from './install-browsers.js'
-import type { TestDefinition, TestResult, ParseError, PlatformAdapter, PlatformConfig, SuiteDefinition, SuiteResult, RunSuiteConfig, HookDefinition, SandboxRunnerOptions, SecretStore, SecretRedactor } from '@vostride/agent-qa-core'
+import type { TestDefinition, TestResult, ParseError, PlatformAdapter, PlatformConfig, SecretStore, SecretRedactor } from '@vostride/agent-qa-core'
 import { isPathInsideDir } from '@vostride/agent-qa-core'
 import { printAgentQaUpdateNoticeIfNeeded, shouldPrintAgentQaUpdateNotice, type AgentQaUpdateNoticeContext } from '../version-notice.js'
 
@@ -63,7 +63,7 @@ export async function createPlatformAdapter(
   return new WebPlatformAdapter()
 }
 
-const runWebAccessibilityCheck: NonNullable<RunSuiteConfig['accessibilityCheck']> = async (page, options) => {
+const runWebAccessibilityCheck: (page: any, options?: any) => Promise<any> = async (page, options) => {
   const { runAccessibilityCheck } = await import('@vostride/agent-qa-web')
   return runAccessibilityCheck(page as any, options)
 }
@@ -415,9 +415,6 @@ function createTestRunId(): string {
   return process.env.AGENT_QA_RUN_ID ?? generateRunId()
 }
 
-function createSuiteRunId(): string {
-  return process.env.AGENT_QA_SUITE_QUEUE_ID ?? process.env.AGENT_QA_RUN_ID ?? generateRunId()
-}
 
 function printRunId(runId: string | null | undefined): void {
   if (runId) console.log(`Run ID: ${runId}`)
@@ -440,9 +437,6 @@ function isGlobLikePattern(value: string): boolean {
   return /[*?[{]/.test(value)
 }
 
-function classifyRunPattern(pattern: string): WorkspaceFileKind {
-  return pattern.includes('.suite.') ? 'suite' : 'test'
-}
 
 function matchesCliWorkspacePattern(
   workspace: ResolvedWorkspacePaths,
@@ -452,12 +446,11 @@ function matchesCliWorkspacePattern(
 ): boolean {
   const patternWorkspace = {
     ...workspace,
-    testMatch: kind === 'test' ? [pattern] : workspace.testMatch,
-    suiteMatch: kind === 'suite' ? [pattern] : workspace.suiteMatch,
+    testMatch: [pattern],
   }
   return isWorkspacePathMatch({
     workspace: patternWorkspace,
-    kind,
+    kind: 'test',
     workspaceRelativePath: record.workspaceRelativePath,
   })
 }
@@ -465,27 +458,15 @@ function matchesCliWorkspacePattern(
 async function discoverFilesForCliPatterns(
   workspace: ResolvedWorkspacePaths,
   patterns: string[],
-): Promise<{ tests: string[]; suites: string[] }> {
+): Promise<{ tests: string[] }> {
   const testRecords = await discoverWorkspaceFiles({ workspace, kind: 'test' })
-  const suiteRecords = await discoverWorkspaceFiles({ workspace, kind: 'suite' })
-  const discoveredByKind: Record<WorkspaceFileKind, WorkspaceFileRecord[]> = {
-    test: testRecords,
-    suite: suiteRecords,
-  }
-  const selectedByKind: Record<WorkspaceFileKind, Map<string, WorkspaceFileRecord>> = {
-    test: new Map(),
-    suite: new Map(),
-  }
-  const seenKinds = new Set<WorkspaceFileKind>()
+  const selectedTests: string[] = []
 
   for (const pattern of patterns) {
-    const kind = classifyRunPattern(pattern)
-    seenKinds.add(kind)
-
     if (isGlobLikePattern(pattern)) {
-      for (const record of discoveredByKind[kind]) {
-        if (matchesCliWorkspacePattern(workspace, kind, pattern, record)) {
-          selectedByKind[kind].set(record.workspaceRelativePath, record)
+      for (const record of testRecords) {
+        if (matchesCliWorkspacePattern(workspace, 'test', pattern, record)) {
+          selectedTests.push(record.absolutePath)
         }
       }
       continue
@@ -493,32 +474,18 @@ async function discoverFilesForCliPatterns(
 
     const record = await resolveWorkspaceFileTarget({
       workspace,
-      kind,
+      kind: 'test',
       filePath: pattern,
       requireExisting: true,
     })
-    selectedByKind[kind].set(record.workspaceRelativePath, record)
-  }
-
-  if (seenKinds.size > 1) {
-    throw new Error('Cannot mix suite files and test patterns in the same run')
+    selectedTests.push(record.absolutePath)
   }
 
   return {
-    tests: [...selectedByKind.test.values()].map(record => record.absolutePath),
-    suites: [...selectedByKind.suite.values()].map(record => record.absolutePath),
+    tests: [...new Set(selectedTests)],
   }
 }
 
-function buildHooksArtifact(hooks?: Map<string, HookDefinition>): Array<{ id: string; name: string; runtime?: string; sourcePath?: string }> {
-  if (!hooks) return []
-  return [...hooks.values()].map((hook) => ({
-    id: hook.id,
-    name: hook.name,
-    runtime: (hook as any).runtime,
-    sourcePath: (hook as any).path ?? (hook as any).sourcePath,
-  }))
-}
 
 async function loadRuntimeSecrets(input: {
   config: AgentQaConfig
@@ -569,7 +536,7 @@ async function loadRuntimeSecrets(input: {
 }
 
 function buildRunArtifactContext(input: {
-  kind: 'test' | 'suite-parent' | 'suite-child'
+  kind: 'test'
   configContent: string
   parsedConfig: unknown
   effectiveConfig: unknown
@@ -579,7 +546,6 @@ function buildRunArtifactContext(input: {
   secretsFileMetadata?: SecretsFileArtifactMetadata | null
   cliVars: Record<string, string>
   inlineVars: Record<string, string>
-  hooks?: Map<string, HookDefinition>
   planner: { provider?: string; model?: string }
   verifier: { provider?: string; model?: string }
   platform: 'web' | 'android' | 'ios'
@@ -590,7 +556,7 @@ function buildRunArtifactContext(input: {
   cache: Record<string, unknown>
   memory: Record<string, unknown>
   source: Record<string, unknown>
-}): { artifact: Record<string, unknown> & { kind: 'test' | 'suite-parent' | 'suite-child' } } {
+}): { artifact: Record<string, unknown> & { kind: 'test' } } {
   return redactAuthStateValue({
     artifact: {
       kind: input.kind,
@@ -606,7 +572,6 @@ function buildRunArtifactContext(input: {
         secretsFile: input.secretsFileMetadata ?? null,
         cliVars: input.cliVars,
         inlineVars: input.inlineVars,
-        hooks: buildHooksArtifact(input.hooks),
         model: {
           planner: input.planner,
           verifier: input.verifier,
@@ -625,7 +590,7 @@ function buildRunArtifactContext(input: {
         attributes: input.attributes,
       },
     },
-  }) as { artifact: Record<string, unknown> & { kind: 'test' | 'suite-parent' | 'suite-child' } }
+  }) as { artifact: Record<string, unknown> & { kind: 'test' } }
 }
 
 export async function resolveDeviceAndFarmSession(
@@ -823,720 +788,6 @@ async function captureAuthStateForRun(input: {
   }
 }
 
-async function executeSuites(
-  suiteFiles: string[],
-  opts: RunOptions,
-  config: AgentQaConfig,
-  globalOpts: { config?: string; verbose?: boolean; quiet?: boolean; logLevel?: string },
-  configContent: string,
-  effectiveLogLevel: string,
-  variableContext?: {
-    envFileVars: Record<string, string>
-    inlineVars: Record<string, string>
-    cliVars: Record<string, string>
-    rawEnvFileContent?: string | null
-    resolvedEnvFilePath?: string | null
-    secretStore?: SecretStore
-    secretRedactor?: SecretRedactor
-    secretsFileMetadata?: SecretsFileArtifactMetadata | null
-    userRunAttributes: RunAttributes
-    inheritedRunAttributes?: RunAttributes
-  },
-  hooksContext?: { resolvedHooks: Map<string, HookDefinition>; sandboxOptions: SandboxRunnerOptions },
-): Promise<boolean> {
-  const { parseSuiteFile, parseTestFile, runSuite,
-    createModel, getProviderOptions, LLMPlanner, LLMVerifier,
-    ConsoleReporter, JUnitReporter, MultiReporter, createAnalyticsRunReporter,
-  } = await import('@vostride/agent-qa-core')
-  const { readFile } = await import('node:fs/promises')
-  const path = await import('node:path')
-
-  const configFilePath = globalOpts.config ?? 'agent-qa.config.yaml'
-  const configDir = path.dirname(path.resolve(configFilePath))
-
-  const suiteResults: SuiteResult[] = []
-
-  const activeSuiteDbs = new Set<any>()
-  let shutdownRequested = false
-
-  const handleShutdown = () => {
-    shutdownRequested = true
-    process.exitCode = 130
-    for (const activeSuiteDb of activeSuiteDbs) {
-      try {
-        const now = new Date().toISOString()
-        const runningRuns = activeSuiteDb.getRuns({ status: 'running' })
-          .filter((run: any) => run.suiteId && !run.parentRunId)
-        for (const run of runningRuns) {
-          activeSuiteDb.updateRun(run.id, { status: 'cancelled', endedAt: now })
-          const children = activeSuiteDb.getRunsByParent(run.id)
-          for (const child of children) {
-            if (child.status === 'running') {
-              activeSuiteDb.updateRun(child.id, { status: 'cancelled', endedAt: now })
-            }
-          }
-        }
-      } catch { /* best-effort cleanup */ }
-    }
-  }
-
-  process.once('SIGINT', handleShutdown)
-  process.once('SIGTERM', handleShutdown)
-
-  const dashboardCfg = config.services?.dashboard as Record<string, unknown> | undefined
-  const reporterSelectionResult = resolveReporterSelection(opts, Boolean(dashboardCfg))
-  if (reporterSelectionResult.error) {
-    console.error(pc.red(`Error: ${reporterSelectionResult.error}`))
-    process.exit(2)
-  }
-  const reporterSelection = reporterSelectionResult.selection!
-  const dashboardEnabled = reporterSelection.dashboard
-
-  const createSuiteDashboardResources = async (): Promise<{ dashboardDb?: any; logStorage?: any }> => {
-    if (!dashboardEnabled) return {}
-    try {
-      const { DashboardDatabase, resolveDashboardDbPath } = await import('@vostride/agent-qa-dashboard')
-      const configuredDbPath = dashboardCfg?.dbPath as string | undefined
-      const dashboardDb = new DashboardDatabase({
-        dbPath: resolveDashboardDbPath({ configDir, configuredDbPath }),
-      })
-      activeSuiteDbs.add(dashboardDb)
-      return { dashboardDb, logStorage: dashboardDb }
-    } catch (err) {
-      console.warn(pc.yellow(`Warning: Could not load dashboard reporter: ${err instanceof Error ? err.message : String(err)}`))
-      return {}
-    }
-  }
-
-  const closeSuiteDashboardDb = (dashboardDb?: any) => {
-    if (!dashboardDb) return
-    activeSuiteDbs.delete(dashboardDb)
-    dashboardDb.close()
-  }
-
-  type SuiteParentOutcome = { failed: boolean; cancelled: boolean }
-
-  const resolveSuiteParentPlatform = async (suite: SuiteDefinition): Promise<'web' | 'android' | 'ios'> => {
-    if (suite.target) {
-      return resolveTarget(config, suite.target).platform
-    }
-    const firstEntry = suite.tests[0]
-    if (firstEntry) {
-      const absolutePath = path.resolve(configDir, firstEntry.test)
-      const fileContent = await readFile(absolutePath, 'utf-8')
-      const parseResult = parseTestFile(fileContent, absolutePath)
-      const firstTest = parseResult.tests[0]
-      if (firstTest?.target) {
-        return resolveTarget(config, firstTest.target).platform
-      }
-    }
-    return 'web'
-  }
-
-  const runOneSuiteFile = async (suiteFile: string, suite: SuiteDefinition): Promise<SuiteParentOutcome> => {
-    const suiteFailureAttributes = resolveCliRunAttributes(
-      variableContext?.userRunAttributes ?? {},
-      'local',
-      variableContext?.inheritedRunAttributes,
-    )
-    const { dashboardDb, logStorage } = await createSuiteDashboardResources()
-    let lastSuiteRunId: string | undefined
-    let suiteFileContent = ''
-    try { suiteFileContent = await readFile(suiteFile, 'utf-8') } catch { /* best-effort */ }
-
-    const mergedUse = mergeUseBlocks(
-      config.use as Record<string, unknown>,
-      suite.use as Record<string, unknown> | undefined,
-      undefined,
-      {},
-    )
-    const suiteAuthStateUse = getSelectedAuthStateUse(mergedUse as Record<string, unknown>)
-
-    const testEntries: [TestDefinition, string][] = []
-    const suiteMembers: Array<Record<string, unknown>> = []
-    for (const { test: relativePath, id: suiteEntryId } of suite.tests) {
-      if (!isPathInsideDir(relativePath, configDir)) {
-        console.error(pc.red(`Path traversal rejected: ${relativePath}`))
-        const runId = createSuiteRunId()
-        if (dashboardDb) {
-          const now = new Date().toISOString()
-          const existingRunId = process.env.AGENT_QA_RUN_ID ?? process.env.AGENT_QA_SUITE_QUEUE_ID
-          if (existingRunId) {
-            dashboardDb.updateRun(existingRunId, {
-              name: `Path traversal rejected in suite`,
-              status: 'failed',
-              duration: 0,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `Path traversal rejected: ${relativePath}`,
-              errorLog: `Path traversal rejected: ${relativePath}`,
-            })
-          } else {
-            dashboardDb.insertRun({
-              id: runId,
-              name: `Path traversal rejected in suite`,
-              status: 'failed',
-              duration: 0,
-              startedAt: now,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `Path traversal rejected: ${relativePath}`,
-            })
-            dashboardDb.updateRun(runId, { errorLog: `Path traversal rejected: ${relativePath}` })
-          }
-          closeSuiteDashboardDb(dashboardDb)
-        }
-        printRunId(runId)
-        printRunAttributes(suiteFailureAttributes)
-        process.exit(2)
-      }
-
-      const absolutePath = path.resolve(configDir, relativePath)
-      const fileContent = await readFile(absolutePath, 'utf-8')
-      const parseResult = parseTestFile(fileContent, absolutePath)
-      if (parseResult.errors.length > 0) {
-        console.error(pc.red(`Parse errors in ${relativePath}:`))
-        formatParseErrors(parseResult.errors)
-        const runId = createSuiteRunId()
-        if (dashboardDb) {
-          const now = new Date().toISOString()
-          const errorLines: string[] = []
-          for (const e of parseResult.errors) {
-            const location = `${e.file}:${e.line}:${e.column}`
-            errorLines.push(`${e.severity}: ${e.message}\n  --> ${location}`)
-          }
-          const existingRunId = process.env.AGENT_QA_RUN_ID ?? process.env.AGENT_QA_SUITE_QUEUE_ID
-          if (existingRunId) {
-            dashboardDb.updateRun(existingRunId, {
-              name: `Parse errors in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `${parseResult.errors.length} parse error(s) in ${relativePath}`,
-              errorLog: errorLines.join('\n'),
-            })
-          } else {
-            dashboardDb.insertRun({
-              id: runId,
-              name: `Parse errors in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              startedAt: now,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `${parseResult.errors.length} parse error(s) in ${relativePath}`,
-            })
-            dashboardDb.updateRun(runId, { errorLog: errorLines.join('\n') })
-          }
-          closeSuiteDashboardDb(dashboardDb)
-        }
-        printRunId(runId)
-        printRunAttributes(suiteFailureAttributes)
-        process.exit(2)
-      }
-      if (parseResult.tests.length === 0) {
-        console.error(pc.red(`No test definition found in ${relativePath}`))
-        const runId = createSuiteRunId()
-        if (dashboardDb) {
-          const now = new Date().toISOString()
-          const existingRunId = process.env.AGENT_QA_RUN_ID ?? process.env.AGENT_QA_SUITE_QUEUE_ID
-          if (existingRunId) {
-            dashboardDb.updateRun(existingRunId, {
-              name: `No test definition in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `No test definition found in ${relativePath}`,
-              errorLog: `No test definition found in ${relativePath}`,
-            })
-          } else {
-            dashboardDb.insertRun({
-              id: runId,
-              name: `No test definition in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              startedAt: now,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: `No test definition found in ${relativePath}`,
-            })
-            dashboardDb.updateRun(runId, { errorLog: `No test definition found in ${relativePath}` })
-          }
-          closeSuiteDashboardDb(dashboardDb)
-        }
-        printRunId(runId)
-        printRunAttributes(suiteFailureAttributes)
-        process.exit(2)
-      }
-
-      const testDef = parseResult.tests[0]
-      const childAuthStateUse = getSelectedAuthStateUse(testDef.use as Record<string, unknown> | undefined)
-      // The suite owns the shared browser context; child authState can only repeat the same logical state.
-      if (suiteAuthStateUse && childAuthStateUse && childAuthStateUse.name !== suiteAuthStateUse.name) {
-        console.error(pc.red(`Suite auth state "${suiteAuthStateUse.name}" conflicts with child test auth state "${childAuthStateUse.name}". Use one primary auth state per suite.`))
-        process.exit(2)
-      }
-      if (testDef['test-id'] && testDef['test-id'] !== suiteEntryId) {
-        const mismatchMsg = `ID mismatch in suite "${suite.name}": test file ${relativePath} has test-id "${testDef['test-id']}" but suite entry specifies id "${suiteEntryId}"`
-        console.error(pc.red(mismatchMsg))
-        const runId = createSuiteRunId()
-        if (dashboardDb) {
-          const now = new Date().toISOString()
-          const existingRunId = process.env.AGENT_QA_RUN_ID ?? process.env.AGENT_QA_SUITE_QUEUE_ID
-          if (existingRunId) {
-            dashboardDb.updateRun(existingRunId, {
-              name: `ID mismatch in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: mismatchMsg,
-              errorLog: mismatchMsg,
-            })
-          } else {
-            dashboardDb.insertRun({
-              id: runId,
-              name: `ID mismatch in suite "${suite.name}"`,
-              status: 'failed',
-              duration: 0,
-              startedAt: now,
-              endedAt: now,
-              attributes: suiteFailureAttributes,
-              failureSummary: mismatchMsg,
-            })
-            dashboardDb.updateRun(runId, { errorLog: mismatchMsg })
-          }
-          closeSuiteDashboardDb(dashboardDb)
-        }
-        printRunId(runId)
-        printRunAttributes(suiteFailureAttributes)
-        process.exit(2)
-      }
-
-      suiteMembers.push({
-        index: suiteMembers.length,
-        ref: { test: relativePath, id: suiteEntryId },
-        filePath: absolutePath,
-        testId: testDef['test-id'] ?? null,
-        name: testDef.name,
-        target: testDef.target ?? null,
-        rawYaml: fileContent,
-        resolvedDefinition: testDef,
-        loadStatus: 'loaded',
-      })
-      testEntries.push([testDef, absolutePath])
-    }
-
-    const suiteResolvedTarget = suite.target
-      ? resolveTarget(config, suite.target!)
-      : resolveTarget(config, testEntries[0][0].target!)
-    const suitePlatform: 'web' | 'android' | 'ios' = suiteResolvedTarget.platform
-
-    const suiteAuthState = await resolveSelectedAuthStateForRun({
-      config,
-      configDir,
-      resolvedTarget: suiteResolvedTarget,
-      authState: suiteAuthStateUse,
-    })
-    const suiteAuthStateCapturePaths = resolveAuthStateCapturePathsForRun({
-      config,
-      configDir,
-      resolvedTarget: suiteResolvedTarget,
-      authState: suiteAuthStateUse,
-    })
-    const suiteEffectiveCacheEnabled = opts.cache !== false && (mergedUse as Record<string, unknown>).cache !== false
-    let suiteDeviceName = opts.device ?? (mergedUse.device as string | undefined)
-
-    if ((suitePlatform === 'android' || suitePlatform === 'ios') && !suiteDeviceName) {
-      const childDeviceNames = testEntries.map(([testDef]) => {
-        const device = (testDef.use as Record<string, unknown> | undefined)?.device
-        return typeof device === 'string' && device.trim().length > 0 ? device.trim() : undefined
-      })
-      const missingChildDevice = childDeviceNames.some((device) => !device)
-      const uniqueChildDevices = [...new Set(childDeviceNames.filter((device): device is string => Boolean(device)))]
-
-      if (missingChildDevice || uniqueChildDevices.length === 0) {
-        throw new Error(`Select a device for this mobile suite "${suite.name}" with suite use.device or every child test use.device.`)
-      }
-      if (uniqueChildDevices.length > 1) {
-        throw new Error(`Mobile suite child tests use multiple devices (${uniqueChildDevices.join(', ')}); set suite use.device or split the suite.`)
-      }
-      suiteDeviceName = uniqueChildDevices[0]
-    }
-    const deviceName = suiteDeviceName
-
-    const suiteTimeoutConfig = mergedUse.timeout as Record<string, unknown> | undefined
-    const testTimeouts = {
-      step: typeof suiteTimeoutConfig?.step === 'number' ? suiteTimeoutConfig.step : 30000,
-      test: typeof suiteTimeoutConfig?.test === 'number' ? suiteTimeoutConfig.test : 120000,
-      navigation: typeof suiteTimeoutConfig?.navigation === 'number' ? suiteTimeoutConfig.navigation : 30000,
-    }
-
-    const suiteLocalBindings = suitePlatform === 'android' || suitePlatform === 'ios'
-      ? loadLocalBindings()
-      : null
-    let mobileResolved: ResolvedMobileRunConfig | undefined
-    let resolvedDevice: ResolvedDevice | undefined
-    let farmSession: PlatformConfig['farmSession'] | undefined
-    if (suitePlatform === 'android' || suitePlatform === 'ios') {
-      mobileResolved = resolveMobileRunOrThrow({
-        config: config as unknown as Record<string, any>,
-        targetName: suiteResolvedTarget.name,
-        platform: suitePlatform,
-        explicitDeviceName: opts.device,
-        useDeviceName: suiteDeviceName,
-        appState: (mergedUse.mobile as Record<string, unknown> | undefined)?.appState as 'preserve' | 'reset' | undefined,
-        localBindings: suiteLocalBindings,
-        configFilePath: path.resolve(configFilePath),
-        localConfigFilePath: suiteLocalBindings?.filePath,
-        appiumUrl: process.env.AGENT_QA_APPIUM_URL,
-      })
-      const resolved = await resolveDeviceAndFarmSession(
-        config, mobileResolved.deviceName, suitePlatform,
-        `Suite: ${suite.name} — ${new Date().toISOString().slice(0, 19)}`,
-        testTimeouts.test,
-        mobileResolved.device,
-        suiteLocalBindings,
-        mobileResolved,
-      )
-      resolvedDevice = resolved.resolvedDevice
-      farmSession = resolved.farmSession
-    }
-
-    const useFarm = resolvedDevice?.transport !== undefined && resolvedDevice.transport !== 'local'
-    const suiteAttributes = resolveCliRunAttributes(
-      variableContext?.userRunAttributes ?? {},
-      resolveRunnerAttribute(resolvedDevice?.transport),
-      variableContext?.inheritedRunAttributes,
-    )
-    writeRunAttributesToEnv(suiteAttributes)
-
-    // Auto-start Appium for mobile platforms
-    if ((suitePlatform === 'ios' || suitePlatform === 'android') && !useFarm) {
-      try {
-        const appiumUrl = await acquireAppium(effectiveLogLevel)
-        if (mobileResolved) {
-          mobileResolved = { ...mobileResolved, appium: { url: appiumUrl, managed: !process.env.AGENT_QA_APPIUM_URL } }
-        }
-      } catch (err) {
-        throw new MobileSetupError({
-          category: 'appium-startup',
-          message: `Could not auto-start Appium: ${err instanceof Error ? err.message : String(err)}`,
-          platform: suitePlatform,
-          targetName: suiteResolvedTarget.name,
-          deviceName,
-          cause: err,
-        })
-      }
-    }
-
-    const adapter = await createPlatformAdapter(suitePlatform)
-
-    const resolvedTarget = suite.target
-      ? resolveTarget(config, suite.target)
-      : testEntries[0][0].target
-        ? resolveTarget(config, testEntries[0][0].target)
-        : undefined
-
-    const suiteBrowser = (mergedUse.browser as Record<string, unknown> | undefined) ?? config.use?.browser
-    const suiteLogCapture = (mergedUse.logCapture as Record<string, unknown> | undefined) ?? (config as any).use?.logCapture
-    const platformConfig = buildPlatformConfig(suitePlatform, resolvedDevice, testTimeouts, suiteBrowser as any, suiteLogCapture, farmSession, mobileResolved)
-    platformConfig.authState = suiteAuthState
-    platformConfig.verbose = effectiveLogLevel === 'debug'
-    if (opts.headless !== undefined && platformConfig.browser) {
-      platformConfig.browser.headless = opts.headless
-    }
-
-    const recordingEnabled = opts.record ?? config.services?.recording?.enabled ?? false
-    if (recordingEnabled) {
-      const recordingCfg = config.services?.recording as Record<string, unknown> | undefined
-      platformConfig.recording = {
-        enabled: true,
-        videoDir: resolveDashboardVideoDir(config, configDir, dashboardEnabled),
-        videoSize: recordingCfg?.videoSize as { width: number; height: number } | undefined,
-      }
-    }
-
-    // Resolve LLM models
-    const { planner: plannerCfg, verifier: verifierCfg, configName } = resolveLLMModels(config)
-    const resolvedAuth = await resolveModelAuth(configName, plannerCfg)
-    const plannerModelConfig = applyResolvedAuthToModelConfig(plannerCfg, resolvedAuth)
-    const verifierModelConfig = applyResolvedAuthToModelConfig(verifierCfg, resolvedAuth)
-    process.env.AGENT_QA_LLM_MODEL = plannerCfg.model
-    process.env.AGENT_QA_LLM_PROVIDER = plannerCfg.provider
-
-    const plannerModel = await createModel(plannerModelConfig)
-    const verifierModel = await createModel(verifierModelConfig)
-
-    const providerOpts = getProviderOptions(plannerModelConfig)
-
-    const { LogManager } = await import('@vostride/agent-qa-core')
-
-    const logger = new LogManager({
-      runId: process.env.AGENT_QA_RUN_ID || undefined,
-      displayLevel: effectiveLogLevel as any,
-      storage: logStorage,
-      ndjson: process.env.AGENT_QA_LIVE_EVENTS === 'true',
-      redactor: variableContext?.secretRedactor,
-    })
-
-    let agentRulesContent: string | undefined
-    const agentRulesPath = (config as any).workspace?.agentRules
-    if (agentRulesPath) {
-      const { readFile: readFileAsync } = await import('node:fs/promises')
-      const resolvedRulesPath = path.resolve(configDir, agentRulesPath)
-      try {
-        agentRulesContent = await readFileAsync(resolvedRulesPath, 'utf-8')
-      } catch { /* agent rules file not found — ignore */ }
-    }
-    let suiteEffectiveRules = agentRulesContent ?? ''
-    if (suiteLogCapture?.console === false) {
-      suiteEffectiveRules += '\nConsole log capture is DISABLED for this test run. The readConsoleLogs action will return no data. If a test step explicitly requires reading console logs, use stepFailed to fail the step — do not silently pass with empty data.'
-    }
-    if (suiteLogCapture?.network === false) {
-      suiteEffectiveRules += '\nNetwork log capture is DISABLED for this test run. The readNetworkLogs action will return no data. If a test step explicitly requires reading network logs, use stepFailed to fail the step — do not silently pass with empty data.'
-    }
-    const planner = new LLMPlanner(plannerModel, suitePlatform, providerOpts, logger.createScopedLogger('planner'), suiteEffectiveRules || undefined)
-    const verifier = new LLMVerifier(verifierModel, providerOpts)
-
-    const reporters: import('@vostride/agent-qa-core').Reporter[] = []
-    if (reporterSelection.console) {
-      reporters.push(new ConsoleReporter({ verbose: false, logLevel: effectiveLogLevel }))
-    }
-    if (reporterSelection.junit && opts.junitOutput) {
-      reporters.push(new JUnitReporter({ outputPath: opts.junitOutput }))
-    }
-    if (reporterSelection.stdoutLive) {
-      const { StdoutLiveReporter } = await import('@vostride/agent-qa-core')
-      reporters.push(new StdoutLiveReporter({ active: true, redactor: variableContext?.secretRedactor }))
-    }
-    if (reporterSelection.dashboard && dashboardDb) {
-      try {
-        const { DashboardReporter } = await import('@vostride/agent-qa-dashboard')
-        const { resolve } = await import('node:path')
-        const dashArtifactsDir = config.services?.dashboard?.artifactsDir ?? RUNTIME_ARTIFACTS_DIR
-        reporters.push(new DashboardReporter({
-          db: dashboardDb,
-          artifactsDir: resolve(configDir, dashArtifactsDir),
-          redactor: variableContext?.secretRedactor,
-          onRunCreated: (runId: string) => { lastSuiteRunId = runId; logger.setRunId(runId) },
-        }))
-      } catch { /* dashboard reporter not available */ }
-    }
-    const analyticsReporter = createAnalyticsRunReporter({ config, surface: 'cli' })
-    reporters.push(analyticsReporter)
-
-    // Wire action cache
-    let actionCache: import('@vostride/agent-qa-core').ActionCache | undefined
-    if (opts.cache !== false) {
-      const { FileActionCache } = await import('@vostride/agent-qa-core')
-      const { resolve } = await import('node:path')
-      actionCache = new FileActionCache({
-        dir: resolve(configDir, config.services?.cache?.dir ?? RUNTIME_CACHE_DIR),
-        ttl: config.services?.cache?.ttl ?? '7d',
-        logger: logger.createScopedLogger('cache'),
-      })
-    }
-
-    const healingConfig = {
-      maxAttempts: config.use?.healing?.maxAttempts ?? 3,
-    }
-
-    const captureScreenshots = reporterSelection.dashboard || opts.screenshotMode === 'every-step' || Boolean(opts.screenshotDir)
-
-    let suiteMemoryProvider: import('@vostride/agent-qa-core').MemoryProvider | undefined
-    let suiteCircuitBreaker: import('@vostride/agent-qa-core').CircuitBreaker | undefined
-    const suiteMemoryConfig = config.services?.memory
-    const suiteMemoryRoot = resolveMemoryRoot(config, configDir)
-
-    if (opts.memory !== false && suiteMemoryConfig?.enabled !== false) {
-      try {
-        const { createMemoryProvider } = await import('@vostride/agent-qa-core')
-        suiteMemoryProvider = await createMemoryProvider({
-          provider: suiteMemoryConfig?.provider ?? 'local',
-          memoryRoot: suiteMemoryRoot,
-          curatorLockTimeout: suiteMemoryConfig?.curatorLockTimeout,
-        })
-      } catch (err) {
-        console.warn(`  ${pc.dim('Memory:')} init error -- ${(err as Error).message}`)
-      }
-
-      if (suiteMemoryConfig?.circuitBreakerEnabled !== false) {
-        const { CircuitBreaker } = await import('@vostride/agent-qa-core')
-        suiteCircuitBreaker = new CircuitBreaker({
-          windowSize: suiteMemoryConfig?.circuitBreakerWindowSize,
-          baselineSize: suiteMemoryConfig?.circuitBreakerBaselineSize,
-          threshold: suiteMemoryConfig?.circuitBreakerThreshold,
-        })
-      }
-    }
-
-    const suiteArtifactContext = buildRunArtifactContext({
-      kind: 'suite-parent',
-      configContent,
-      parsedConfig: config,
-      effectiveConfig: { ...config, use: mergedUse },
-      envFilePath: variableContext?.resolvedEnvFilePath ?? null,
-      rawEnvFileContent: variableContext?.rawEnvFileContent ?? null,
-      envFileVars: variableContext?.envFileVars ?? {},
-      secretsFileMetadata: variableContext?.secretsFileMetadata ?? null,
-      cliVars: variableContext?.cliVars ?? {},
-      inlineVars: variableContext?.inlineVars ?? {},
-      hooks: hooksContext?.resolvedHooks,
-      planner: { provider: plannerCfg.provider, model: plannerCfg.model },
-      verifier: { provider: verifierCfg.provider, model: verifierCfg.model },
-      platform: suitePlatform,
-      target: suiteResolvedTarget,
-      deviceName,
-      attributes: suiteAttributes,
-      timeouts: testTimeouts,
-      cache: {
-        enabled: suiteEffectiveCacheEnabled,
-        dir: config.services?.cache?.dir,
-        ttl: config.services?.cache?.ttl,
-      },
-      memory: {
-        enabled: opts.memory !== false && suiteMemoryConfig?.enabled !== false,
-        curatorEnabled: suiteMemoryConfig?.curatorEnabled,
-        provider: suiteMemoryConfig?.provider ?? 'local',
-        dir: suiteMemoryConfig?.dir,
-      },
-      source: {
-        kind: 'suite',
-        suiteId: (suite as any)['suite-id'] ?? null,
-        name: suite.name,
-        filePath: suiteFile,
-        rawYaml: suiteFileContent || null,
-        resolvedDefinition: suite,
-        loadStatus: 'loaded',
-        members: suiteMembers,
-      },
-    })
-
-    const suiteConfig: RunSuiteConfig = {
-      adapter,
-      platformConfig,
-      planner,
-      verifier,
-      cache: suiteEffectiveCacheEnabled ? actionCache : undefined,
-      healingConfig,
-      plannerModel,
-      verifierModel,
-      providerOptions: providerOpts,
-      reporters,
-      captureScreenshots,
-      screenshotMode: (opts.screenshotMode as 'failure' | 'every-step') ?? 'failure',
-      timeouts: testTimeouts,
-      logger,
-      configContent,
-      suiteFileContent,
-      envFileVars: variableContext?.envFileVars,
-      inlineVars: variableContext?.inlineVars,
-      cliVars: variableContext?.cliVars,
-      resolvedHooks: hooksContext?.resolvedHooks,
-      sandboxOptions: hooksContext?.sandboxOptions,
-      logCapture: suiteLogCapture,
-      accessibility: config.services?.accessibility,
-      accessibilityCheck: runWebAccessibilityCheck,
-      screenshotSize: plannerCfg.screenshotSize,
-      effectiveResolution: plannerCfg.effectiveResolution,
-      memoryProvider: suiteMemoryProvider,
-      memoryConfig: suiteMemoryConfig,
-      memoryRoot: suiteMemoryRoot,
-      circuitBreaker: suiteCircuitBreaker,
-      product: resolvedTarget?.product,
-      authStateCapture: suiteAuthStateCapturePaths
-        ? {
-            capture: () => captureAuthStateForRun({ adapter, paths: suiteAuthStateCapturePaths }),
-            failureSummary: formatAuthStateCaptureFailure(suiteAuthStateCapturePaths),
-          }
-        : undefined,
-      createAdapter: () => createPlatformAdapter(suitePlatform),
-      resolveUrl: (targetName: string) => {
-        try { return resolveTarget(config, targetName).url } catch { return undefined }
-      },
-      onCuratorComplete: dashboardDb ? (_testName: string, memoryLog: any) => {
-        if (lastSuiteRunId) {
-          try {
-            dashboardDb.updateRun(lastSuiteRunId, { memoryLog: JSON.stringify(memoryLog) })
-          } catch { /* DB write failure must not fail the test */ }
-        }
-      } : undefined,
-    }
-    ;(suiteConfig as any).artifactContext = suiteArtifactContext.artifact
-    ;(suiteConfig as any).secretStore = variableContext?.secretStore
-    ;(suiteConfig as any).secretRedactor = variableContext?.secretRedactor
-    ;(suiteConfig as any).secretsFileMetadata = variableContext?.secretsFileMetadata
-
-    const suiteResult = await runSuite(suite, testEntries, suiteConfig)
-      .finally(async () => {
-        closeSuiteDashboardDb(dashboardDb)
-        await flushAnalyticsRunReporter(analyticsReporter)
-      })
-    suiteResults.push(suiteResult)
-    printRunAttributes(suiteAttributes)
-
-    return {
-      failed: suiteResult.status === 'failed',
-      cancelled: suiteResult.status === 'cancelled' || shutdownRequested,
-    }
-  }
-
-  const pendingSuiteParents: Promise<SuiteParentOutcome>[] = []
-  const flushSuiteParents = async (): Promise<SuiteParentOutcome> => {
-    if (pendingSuiteParents.length === 0) return { failed: false, cancelled: false }
-    const batch = pendingSuiteParents.splice(0, pendingSuiteParents.length)
-    const settled = await Promise.allSettled(batch)
-    const rejected = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected')
-    if (rejected) throw rejected.reason
-    const outcomes = settled
-      .filter((outcome): outcome is PromiseFulfilledResult<SuiteParentOutcome> => outcome.status === 'fulfilled')
-      .map((outcome) => outcome.value)
-    return {
-      failed: outcomes.some((outcome) => outcome.failed),
-      cancelled: outcomes.some((outcome) => outcome.cancelled),
-    }
-  }
-
-  for (const suiteFile of suiteFiles) {
-    const suite = await parseSuiteFile(suiteFile)
-    const suitePlatform = await resolveSuiteParentPlatform(suite)
-    const effectiveSuiteParallel = suite.use?.parallel ?? config.use?.parallel ?? false
-    const canRunSuiteInParallel = suitePlatform === 'web' && effectiveSuiteParallel === true
-
-    if (canRunSuiteInParallel) {
-      pendingSuiteParents.push(runOneSuiteFile(suiteFile, suite))
-      continue
-    }
-
-    const batchOutcome = await flushSuiteParents()
-    if (batchOutcome.cancelled || shutdownRequested) break
-    if (opts.bail && batchOutcome.failed) {
-      console.log(pc.yellow('\nBailing out — stopping after first failed suite'))
-      break
-    }
-
-    const outcome = await runOneSuiteFile(suiteFile, suite)
-    if (outcome.cancelled || shutdownRequested) break
-    if (opts.bail && outcome.failed) {
-      console.log(pc.yellow('\nBailing out — stopping after first failed suite'))
-      break
-    }
-  }
-
-  const finalBatchOutcome = await flushSuiteParents()
-  if (opts.bail && finalBatchOutcome.failed) {
-    console.log(pc.yellow('\nBailing out — stopping after first failed suite'))
-  }
-
-  process.removeListener('SIGINT', handleShutdown)
-  process.removeListener('SIGTERM', handleShutdown)
-
-  releaseAppium()
-  return suiteResults.some(r => r.status === 'failed' || r.status === 'cancelled') || shutdownRequested
-}
 
 export function createRunCommand(): Command {
   const cmd = new Command('run')
@@ -1558,20 +809,12 @@ export function createRunCommand(): Command {
     .option('--record', 'enable session video recording')
     .option('--config-debug', 'print resolved config with source attribution for each test')
     .option('--test', 'discover and run tests via testMatch patterns (default when no flags)')
-    .option('--suite', 'discover and run suites via suiteMatch patterns')
-    .option('--all', 'discover and run both tests (testMatch) and suites (suiteMatch)')
     .option('--device <name>', 'Override the mobile test/suite device for this run')
     .option('--var <kv...>', 'set variable KEY=VALUE (repeatable)')
     .option('--run-attr <kv...>', 'attach run attribute KEY=VALUE; repeatable')
     .action(async (patterns: string[], opts: RunOptions, command: Command) => {
       let _crashDb: any
       try {
-        const modeFlags = [opts.test, opts.suite, opts.all].filter(Boolean).length
-        if (modeFlags > 1) {
-          console.error(pc.red('Error: --test, --suite, and --all are mutually exclusive.'))
-          process.exit(1)
-        }
-
         const program = command.parent!
         const globalOpts = program.opts<{ config?: string; verbose?: boolean; quiet?: boolean; logLevel?: string }>()
 
@@ -1650,32 +893,8 @@ export function createRunCommand(): Command {
           process.exit(1)
         }
 
-        let resolvedHooks: Map<string, HookDefinition> | undefined
-        let sandboxOptions: SandboxRunnerOptions | undefined
-
-        const hooksFilePath = workspacePaths.hooksFile.absolutePath
-        if (!existsSync(hooksFilePath)) {
-          console.error(pc.red(`Error: Hooks file not found: ${hooksFilePath}`))
-          process.exit(1)
-        }
-        try {
-          const { parseHooksFile } = await import('@vostride/agent-qa-core')
-          const { hooks, errors } = await parseHooksFile(hooksFilePath)
-          if (errors.length > 0) {
-            console.error(pc.red('Hooks configuration errors:'))
-            for (const err of errors) console.error(pc.red(`  - ${err}`))
-            process.exit(1)
-          }
-          resolvedHooks = new Map(hooks.map((h: HookDefinition) => [h.id, h]))
-          sandboxOptions = {
-            secretStore: runtimeSecrets.secretStore,
-            secretRedactor: runtimeSecrets.secretRedactor,
-          } as any
-        } catch (err: any) {
-          console.error(pc.red(`Error: Hooks file could not be read: ${hooksFilePath}`))
-          if (err instanceof Error && err.message) console.error(pc.dim(err.message))
-          process.exit(1)
-        }
+        const resolvedHooks: any = undefined
+        const sandboxOptions: any = undefined
 
         let agentRulesContent: string | undefined
         const { readFile: readFileAsync } = await import('node:fs/promises')
@@ -1694,42 +913,19 @@ export function createRunCommand(): Command {
           ?? 'warn'
 
         let discoveredTestFiles: string[] = []
-        let discoveredSuiteFiles: string[] = []
 
         if (patterns && patterns.length > 0) {
           try {
             const selected = await discoverFilesForCliPatterns(workspacePaths, patterns)
             discoveredTestFiles = selected.tests
-            discoveredSuiteFiles = selected.suites
           } catch (err) {
             console.error(pc.red(`Error: ${err instanceof Error ? err.message : String(err)}`))
             process.exit(1)
           }
 
-          if (discoveredTestFiles.length === 0 && discoveredSuiteFiles.length === 0) {
-            const patternKind = patterns.every((pattern) => classifyRunPattern(pattern) === 'suite') ? 'suite' : 'test'
-            console.error(pc.red(`Error: No ${patternKind} files found matching patterns:`))
+          if (discoveredTestFiles.length === 0) {
+            console.error(pc.red(`Error: No test files found matching patterns:`))
             for (const p of patterns) console.error(pc.red(`  ${p}`))
-            process.exit(2)
-          }
-        } else if (opts.suite) {
-          discoveredSuiteFiles = (await discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'suite' }))
-            .map(record => record.absolutePath)
-          if (discoveredSuiteFiles.length === 0) {
-            console.error(pc.red('Error: No suite files found matching workspace.suiteMatch'))
-            for (const p of workspacePaths.suiteMatch) {
-              console.error(pc.red(`  ${p}`))
-            }
-            process.exit(2)
-          }
-        } else if (opts.all) {
-          discoveredTestFiles = (await discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'test' }))
-            .map(record => record.absolutePath)
-          discoveredSuiteFiles = (await discoverWorkspaceFiles({ workspace: workspacePaths, kind: 'suite' }))
-            .map(record => record.absolutePath)
-
-          if (discoveredTestFiles.length === 0 && discoveredSuiteFiles.length === 0) {
-            console.error(pc.red('Error: No test or suite files found. Check workspace.testMatch and workspace.suiteMatch in agent-qa.config.yaml'))
             process.exit(2)
           }
         } else {
@@ -1746,28 +942,6 @@ export function createRunCommand(): Command {
             }
             process.exit(2)
           }
-        }
-
-        // Handle suite execution (early return)
-        if (discoveredSuiteFiles.length > 0 && discoveredTestFiles.length === 0) {
-          const hasFailed = await executeSuites(discoveredSuiteFiles, opts, config, globalOpts, configContent, effectiveLogLevel, { envFileVars, inlineVars, cliVars, rawEnvFileContent, resolvedEnvFilePath, userRunAttributes, inheritedRunAttributes, ...runtimeSecrets }, resolvedHooks && sandboxOptions ? { resolvedHooks, sandboxOptions } : undefined)
-          const exitCode = hasFailed ? 1 : 0
-          const suiteReporterSelection = resolveReporterSelection(opts, Boolean(config.services?.dashboard)).selection
-          if (suiteReporterSelection) {
-            await maybePrintPostRunUpdateNotice({
-              reporterSelection: suiteReporterSelection,
-              effectiveLogLevel,
-              liveEvents: process.env.AGENT_QA_LIVE_EVENTS,
-              cwd: process.cwd(),
-            })
-          }
-          process.exit(exitCode)
-        }
-
-        // Handle --all: run suites first, then fall through to test execution
-        let suitesFailed = false
-        if (discoveredSuiteFiles.length > 0 && discoveredTestFiles.length > 0) {
-          suitesFailed = await executeSuites(discoveredSuiteFiles, opts, config, globalOpts, configContent, effectiveLogLevel, { envFileVars, inlineVars, cliVars, rawEnvFileContent, resolvedEnvFilePath, userRunAttributes, inheritedRunAttributes, ...runtimeSecrets }, resolvedHooks && sandboxOptions ? { resolvedHooks, sandboxOptions } : undefined)
         }
 
         const files = discoveredTestFiles
@@ -1872,7 +1046,7 @@ export function createRunCommand(): Command {
                   secretsFile: runtimeSecrets.secretsFileMetadata,
                   cliVars,
                   inlineVars,
-                  hooks: buildHooksArtifact(resolvedHooks),
+                  hooks: [],
                 },
                 source: {
                   kind: 'test',
@@ -2289,7 +1463,6 @@ export function createRunCommand(): Command {
               secretsFileMetadata: runtimeSecrets.secretsFileMetadata,
               cliVars,
               inlineVars,
-              hooks: resolvedHooks,
               planner: { provider: plannerCfg.provider, model: plannerCfg.model },
               verifier: { provider: verifierCfg.provider, model: verifierCfg.model },
               platform: testPlatform,
@@ -2335,8 +1508,8 @@ export function createRunCommand(): Command {
             let testStartTime = Date.now()
             let setupHookFailed = false
             if (resolvedHooks && authAwareSandboxOptions && (testDef as any).setup?.length) {
-              const { runHooks } = await import('@vostride/agent-qa-core')
-              const hookDefs: HookDefinition[] = []
+              const { runHooks } = await import('@vostride/agent-qa-core') as any
+              const hookDefs: any[] = []
               let hookSetupError: string | undefined
               for (const hookId of (testDef as any).setup) {
                 const hook = resolvedHooks.get(hookId)
@@ -2483,7 +1656,7 @@ export function createRunCommand(): Command {
 
             // Per-test teardown hooks: run AFTER test execution (D-01, D-03)
             if (resolvedHooks && teardownSandboxOptions && (testDef as any).teardown?.length) {
-              const { runHooks } = await import('@vostride/agent-qa-core')
+              const { runHooks } = await import('@vostride/agent-qa-core') as any
               for (const hookId of (testDef as any).teardown) {
                 const hook = resolvedHooks.get(hookId)
                 if (!hook) continue
@@ -2585,7 +1758,7 @@ export function createRunCommand(): Command {
                       screenshotSize: plannerCfg.screenshotSize,
                       effectiveResolution: plannerCfg.effectiveResolution,
                       contextWindow: plannerCfg.contextWindow,
-                    }, filePath)
+                    } as any, filePath)
 
                     if (circuitBreaker) {
                       circuitBreaker.record({ withMemory: false, passed: ablationResult.status === 'passed' })
@@ -2789,7 +1962,7 @@ export function createRunCommand(): Command {
           dashboardDb.close()
         }
 
-        const hasFailed = results.some(r => r.status === 'failed') || suitesFailed
+        const hasFailed = results.some(r => r.status === 'failed')
         const exitCode = hasFailed ? 1 : 0
         await maybePrintPostRunUpdateNotice({
           reporterSelection,

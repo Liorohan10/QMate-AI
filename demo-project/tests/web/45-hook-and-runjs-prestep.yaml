@@ -1,8 +1,0 @@
-test-id: t_fruit-read-linen-mass-naam-chine-fault-clinic-true-been
-name: Hook and runjs prestep
-platform: web
-steps:
-  - Prepare the comparison page
-  - Run {{runHook:"h_reak-bond-peat-super-che-streng-proper-juice-pone-bait"}}
-    before evaluating the page
-  - Compare the hook value with the runjs value

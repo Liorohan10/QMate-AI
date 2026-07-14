@@ -124,8 +124,6 @@ const updateMetadata = {
 const eligibleRoutes = [
   ['/runs', 'runs-page'],
   ['/tests', 'tests-page'],
-  ['/hooks', 'hooks-page'],
-  ['/suites', 'suites-page'],
   ['/memory', 'memory-page'],
   ['/config', 'config-page'],
 ] as const
@@ -137,12 +135,6 @@ const excludedRoutes = [
   '/test/abc/edit',
   '/runs/r_1',
   '/runs/r_1/live',
-  '/hooks/new',
-  '/hook/h_1',
-  '/hook/h_1/edit',
-  '/suites/new',
-  '/suite/s_1',
-  '/suite/s_1/edit',
   '/memory/product-1',
 ] as const
 

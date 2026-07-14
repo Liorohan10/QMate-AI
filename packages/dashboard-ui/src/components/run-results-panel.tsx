@@ -7,6 +7,7 @@ import { subscribeToExecutionEvents } from "@/lib/api"
 import { finalStepStatusForRun, getRunStatusDescriptor, normalizeStepStatus } from "@/lib/status"
 import { formatDuration } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { StepCategoryBadge, parseStepCategory } from "./step-category-badge"
 
 interface StepInfo {
   name: string
@@ -174,7 +175,17 @@ export function RunResultsPanel({ runId, onClose }: RunResultsPanelProps) {
               ) : (
                 <XCircle className="size-3.5 mt-0.5 text-red-500 shrink-0" />
               )}
-              <span className="flex-1 min-w-0 break-words">{step.name}</span>
+              <span className="flex-1 min-w-0 break-words">
+                {(() => {
+                  const { category, cleanName } = parseStepCategory(step.name)
+                  return (
+                    <>
+                      <StepCategoryBadge category={category} />
+                      {cleanName}
+                    </>
+                  )
+                })()}
+              </span>
               {step.duration !== undefined && (
                 <span className="text-xs text-muted-foreground shrink-0">
                   {formatDuration(step.duration)}

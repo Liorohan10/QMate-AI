@@ -1,7 +1,7 @@
 import { copyFile, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { buildInternalRunAttributes, redactAuthStateValue, validateTrustedRunAttributes } from '@vostride/agent-qa-core'
-import type { Reporter, RunArtifactReporterContext, RunSummary, TestDefinition, StepResult, TestResult, SuiteDefinition, SuiteSummary, HookEvent, HookResultEvent, SecretRedactor } from '@vostride/agent-qa-core'
+import type { Reporter, RunArtifactReporterContext, RunSummary, TestDefinition, StepResult, TestResult,  SuiteSummary, HookEvent, HookResultEvent, SecretRedactor } from '@vostride/agent-qa-core'
 import type { RunAttributes } from '@vostride/agent-qa-core'
 import type { DashboardDatabase } from '../db/database.js'
 
@@ -230,7 +230,7 @@ export class DashboardReporter implements Reporter {
     }
   }
 
-  onSuiteStart(suite: SuiteDefinition, context?: ArtifactReporterContext): void {
+  onSuiteStart(suite: Record<string, unknown>, context?: ArtifactReporterContext): void {
     const startedAt = new Date().toISOString()
     const suiteId = (suite as any)['suite-id'] ?? null
     const safeSuite = this.redactValue(suite)
@@ -243,7 +243,7 @@ export class DashboardReporter implements Reporter {
       this.suiteRunId = requestedRunId
       if (existingSuiteRun) {
         this.db.updateRun(requestedRunId, {
-          name: safeSuite.name,
+          name: safeSuite.name as string,
           status: 'running',
           startedAt,
           platform,
@@ -253,7 +253,7 @@ export class DashboardReporter implements Reporter {
       } else {
         this.db.insertRun({
           id: requestedRunId,
-          name: safeSuite.name,
+          name: safeSuite.name as string,
           status: 'running',
           duration: 0,
           attributes,
@@ -265,7 +265,7 @@ export class DashboardReporter implements Reporter {
       }
     } else {
       this.suiteRunId = this.db.insertRun({
-        name: safeSuite.name,
+        name: safeSuite.name as string,
         status: 'running',
         duration: 0,
         attributes,

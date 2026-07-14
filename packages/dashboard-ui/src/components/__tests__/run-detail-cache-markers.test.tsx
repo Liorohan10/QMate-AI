@@ -223,43 +223,4 @@ describe("run detail cache markers", () => {
     expect(view.textContent).not.toContain("Cache hit")
   })
 
-  it("keeps suite setup, child groups, skipped children, and teardown in grouped order", () => {
-    const step = {
-      ...makeDisplayStep([makeSubAction({ index: 0, reasoning: 'First child action' })]),
-      id: 'child-a-step-1',
-      rawRunId: 'child-a',
-      runId: 'child-a',
-      name: 'First child step',
-    }
-    const view = mount(
-      <StepTree
-        steps={[step]}
-        selection={null}
-        onSelect={() => {}}
-        suiteTests={[
-          makeRunRow('child-a', 'Login', 'passed'),
-          makeRunRow('child-b', 'Checkout', 'skipped'),
-        ]}
-        suiteSelectedView="all"
-        setupHooks={[
-          makeHook('suite-setup', 'suite-1', 'Suite setup', 'setup'),
-          makeHook('child-setup', 'child-a', 'Child setup', 'setup'),
-        ]}
-        teardownHooks={[makeHook('suite-teardown', 'suite-1', 'Suite teardown', 'teardown')]}
-        inlineLogs={[]}
-      />,
-    )
-
-    const text = view.textContent ?? ''
-    expect(text).toContain('Suite setup')
-    expect(text).toContain('Login')
-    expect(text).toContain('Child setup')
-    expect(text).toContain('First child step')
-    expect(text).toContain('Checkout')
-    expect(text).toContain('Skipped')
-    expect(text).toContain('Suite teardown')
-    expect(text.indexOf('Suite setup')).toBeLessThan(text.indexOf('Login'))
-    expect(text.indexOf('Login')).toBeLessThan(text.indexOf('Checkout'))
-    expect(text.indexOf('Checkout')).toBeLessThan(text.indexOf('Suite teardown'))
-  })
 })

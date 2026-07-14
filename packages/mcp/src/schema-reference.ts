@@ -1,9 +1,11 @@
 import {
   AgentQaConfigSchema,
-  HooksFileSchema,
-  SuiteDefinitionSchema,
   TestDefinitionSchema,
 } from '@vostride/agent-qa-core'
+import { z } from 'zod'
+
+const SuiteDefinitionSchema = z.any()
+const HooksFileSchema = z.any()
 import {
   getEntityIdContracts,
   type EntityIdType,
@@ -98,7 +100,7 @@ export function validateAgentQaDefinition(
   return {
     valid: false,
     kind,
-    issues: result.error.issues.map(issue => ({
+    issues: (result.error as any).issues.map((issue: any) => ({
       path: issue.path.map(String).join('.') || '(root)',
       message: issue.message,
     })),
