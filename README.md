@@ -1,19 +1,7 @@
-<div align="center">
-  <p>
-    <a href="https://vostride.com/docs/agent-qa">Docs</a>
-    ·
-    <a href="https://github.com/vostride/agent-qa/tree/main/demo-project">Demo</a>
-    ·
-    <a href="https://github.com/vostride/agent-qa/issues">Issues</a>
-  </p>
-</div>
-
 ## agent-qa
 The self-improving Agentic QA harness with Memory
 
 Write tests in natural language for web and mobile. agent-qa learns from past runs, adapts to UI changes, and catches regressions before you ship.
-
-[Docs](https://vostride.com/docs/agent-qa) | [Quickstart](https://vostride.com/docs/agent-qa/quickstart)
 
 ## Features
 
@@ -57,8 +45,6 @@ Start the dashboard, complete auth, and run tests from the UI:
 npx agent-qa dashboard --open
 ```
 
-For the full setup flow, use the [quickstart](https://vostride.com/docs/agent-qa/quickstart).
-
 ## CLI
 
 Run tests from the CLI:
@@ -66,13 +52,3 @@ Run tests from the CLI:
 ```sh
 npx agent-qa run tests/hacker-news-top-story.yaml
 ```
-
-## Docs
-
-- [Full docs](https://vostride.com/docs/agent-qa)
-- [Quickstart](https://vostride.com/docs/agent-qa/quickstart)
-- [CLI reference](https://vostride.com/docs/agent-qa/cli)
-- [Dashboard](https://vostride.com/docs/agent-qa/dashboard)
-- [Configuration](https://vostride.com/docs/agent-qa/configuration)
-- [License](LICENSE.md)
-- [Notice](NOTICE.md)
