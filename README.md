@@ -1,4 +1,4 @@
-## agent-qa
+## QMate AI
 The self-improving Agentic QA harness with Memory
 
 Write tests in natural language for web and mobile. agent-qa learns from past runs, adapts to UI changes, and catches regressions before you ship.
