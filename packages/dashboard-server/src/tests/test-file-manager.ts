@@ -15,6 +15,7 @@ export interface TestFileInfo {
   targetName: string | null
   platform: string | null
   modified: string
+  estimatedTokens: number | null
 }
 
 export type SupportedPlatform = 'web' | 'android' | 'ios'
@@ -25,6 +26,7 @@ export interface TestFileMetadata {
   targetName: string | null
   platform: SupportedPlatform | null
   parallel: boolean | null
+  estimatedTokens?: number | null
 }
 
 export interface TestValidationError {
@@ -74,6 +76,7 @@ export function extractTestFileMetadata(content: string): TestFileMetadata {
   const testIdMatch = content.match(/^test-id:\s*(.+)$/m)
   const platformMatch = content.match(/^\s*platform:\s*(web|android|ios)\s*$/m)
   const parallelMatch = content.match(/^\s*parallel:\s*(true|false)\s*$/m)
+  const estimatedTokensMatch = content.match(/^estimated-tokens:\s*(.+)$/m)
 
   const name = typeof parsed?.name === 'string' && parsed.name.trim().length > 0
     ? parsed.name.trim()
@@ -107,12 +110,19 @@ export function extractTestFileMetadata(content: string): TestFileMetadata {
           ? parallelMatch[1] === 'true'
           : null
 
+  const estimatedTokens = typeof parsed?.['estimated-tokens'] === 'number'
+    ? parsed['estimated-tokens']
+    : (estimatedTokensMatch
+      ? parseInt(normalizeQuotedString(estimatedTokensMatch[1]), 10) || null
+      : (parsed ? calculateTestEstimatedTokens(parsed) : null))
+
   return {
     name,
     testId,
     targetName,
     platform,
     parallel,
+    estimatedTokens,
   }
 }
 
@@ -131,12 +141,14 @@ export class TestFileManager {
           let platform: string | null = null
           let targetName: string | null = null
           let testId: string | null = null
+          let estimatedTokens: number | null = null
           try {
             let content = await readFile(record.absolutePath, 'utf-8')
             const metadata = extractTestFileMetadata(content)
             if (metadata.name) testName = metadata.name
             if (metadata.targetName) targetName = metadata.targetName
             if (metadata.platform) platform = metadata.platform
+            if (metadata.estimatedTokens) estimatedTokens = metadata.estimatedTokens
             if (metadata.testId) {
               testId = metadata.testId
             } else {
@@ -152,6 +164,7 @@ export class TestFileManager {
             targetName,
             platform,
             modified: s.mtime.toISOString(),
+            estimatedTokens,
           })
         }
       } catch {
@@ -221,4 +234,18 @@ export class TestFileManager {
       requireExisting,
     })
   }
+}
+
+function calculateTestEstimatedTokens(parsedObj: any): number {
+  if (!parsedObj || !parsedObj.steps || !Array.isArray(parsedObj.steps)) return 0
+  const contextText = parsedObj.context || ''
+  const contextTokens = Math.ceil(contextText.length / 4)
+  
+  let total = 0
+  for (const step of parsedObj.steps) {
+    const stepText = typeof step === 'string' ? step : (step.step || '')
+    const stepTokens = Math.ceil(stepText.length / 4)
+    total += 2500 + 4000 + stepTokens + contextTokens + 500
+  }
+  return total
 }

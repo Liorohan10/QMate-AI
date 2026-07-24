@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
     extensions: ['.mjs', '.js', '.mts', '.tsx', '.ts', '.jsx', '.json'],
   },
   optimizeDeps: {

@@ -214,7 +214,7 @@ export function CommandPalette() {
         <CommandSeparator />
         <CommandGroup heading="Help">
           <CommandItem
-            value="help take product tour onboarding Titan-QA"
+            value="help take product tour onboarding QMate AI"
             data-tour-id="tour-command-product-tour"
             onSelect={handleTakeProductTour}
           >

@@ -529,7 +529,7 @@ describe('AppLayout product tour integration', () => {
     expect(dialog()).not.toBeNull()
     expect(dialog()?.getAttribute('aria-modal')).toBe('false')
     expectDialogBottomRight()
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -581,7 +581,7 @@ describe('ProductTourProvider auto-start behavior', () => {
 
     expect(dialog()).not.toBeNull()
     expect(dialog()?.getAttribute('aria-modal')).toBe('false')
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(container?.querySelector('[data-testid="active-step"]')?.textContent).toBe('intro')
   })
 
@@ -610,7 +610,7 @@ describe('ProductTourProvider persisted controls', () => {
 
     await clickElement('[data-testid="sidebar-tour-launch"]')
 
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -626,7 +626,7 @@ describe('ProductTourProvider persisted controls', () => {
 
     await clickElement('[data-testid="command-tour-launch"]')
 
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -641,7 +641,7 @@ describe('ProductTourProvider persisted controls', () => {
     await clickElement('[data-testid="restart-tour"]')
 
     const state = readProductTourStateCookie()
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(state).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -716,7 +716,7 @@ describe('ProductTourProvider persisted controls', () => {
     })
     await flushAsyncWork()
 
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
     expect(readProductTourStateCookie()).toMatchObject({
       lastStartedAt: fixedNow.toISOString(),
       activeStepId: 'intro',
@@ -1125,7 +1125,7 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
       'example-missing',
     )
     expect(dialog()?.textContent ?? '').toContain(
-      'Titan-QA init normally creates Example passing test',
+      'QMate AI init normally creates Example passing test',
     )
   })
 
@@ -1135,7 +1135,7 @@ describe('ProductTourProvider route-aware navigation and fallback rendering', ()
     await renderTour({ path: '/runs' })
 
     expect(appHarness.fetchTestFiles).toHaveBeenCalledTimes(1)
-    expect(textContent()).toContain('Welcome to Titan-QA')
+    expect(textContent()).toContain('Welcome to QMate AI')
 
     cleanupRoot()
     clearTourCookie()

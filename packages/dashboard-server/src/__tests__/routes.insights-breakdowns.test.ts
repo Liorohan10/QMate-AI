@@ -343,3 +343,29 @@ describe('GET /api/analytics/breakdowns', () => {
     expect(JSON.parse(runsRes.body).total).toBe(2)
   })
 })
+
+describe('GET /api/analytics/tests/:name/report', () => {
+  it('generates a docx report successfully with step statistics', async () => {
+    const runId = insertRun({
+      id: randomUUID(),
+      name: 'Checkout flow',
+      status: 'passed',
+      duration: 1000,
+    })
+    db.insertStep({
+      id: randomUUID(),
+      runId,
+      name: 'Click Checkout Button',
+      status: 'passed',
+      duration: 200,
+      stepOrder: 1,
+      confidence: 0.85,
+    })
+
+    const res = await invokeRoute('/api/analytics/tests/Checkout%20flow/report')
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    expect(res.headers['content-disposition']).toBe('attachment; filename="Checkout%20flow_report.docx"')
+    expect(res.body.length).toBeGreaterThan(0)
+  })
+})

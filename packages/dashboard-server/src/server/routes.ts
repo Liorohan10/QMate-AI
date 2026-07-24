@@ -2511,6 +2511,8 @@ Now generate the complete agent-qa YAML test file following all rules above.`
               }
             }
 
+
+
             json(res, { yaml: yamlText })
           } catch (err) {
             json(res, { error: err instanceof Error ? err.message : 'Failed to generate test case' }, 500)
@@ -4363,6 +4365,8 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     promptTokens: number
     completionTokens: number
     errors: string[]
+    totalConfidence: number
+    confidenceCount: number
   }>()
 
   for (const step of steps) {
@@ -4371,7 +4375,8 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     if (!stats) {
       stats = {
         name: key, executions: 0, passed: 0, failed: 0, healed: 0,
-        totalDuration: 0, promptTokens: 0, completionTokens: 0, errors: []
+        totalDuration: 0, promptTokens: 0, completionTokens: 0, errors: [],
+        totalConfidence: 0, confidenceCount: 0
       }
       stepMap.set(key, stats)
     }
@@ -4379,6 +4384,10 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     stats.totalDuration += step.duration
     stats.promptTokens += step.promptTokens || 0
     stats.completionTokens += step.completionTokens || 0
+    if (step.confidence !== null && step.confidence !== undefined) {
+      stats.totalConfidence += step.confidence
+      stats.confidenceCount++
+    }
     
     if (step.status === 'passed' || step.status === 'completed') {
       stats.passed++
@@ -4396,6 +4405,7 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     const healRate = s.executions > 0 ? (s.healed / s.executions) * 100 : 0
     const avgDuration = s.executions > 0 ? s.totalDuration / s.executions : 0
     const avgTokens = s.executions > 0 ? (s.promptTokens + s.completionTokens) / s.executions : 0
+    const avgConfidence = s.confidenceCount > 0 ? (s.totalConfidence / s.confidenceCount) * 100 : null
     
     const errCounts: Record<string, number> = {}
     let mostCommonError = ''
@@ -4407,7 +4417,7 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
         mostCommonError = err
       }
     }
-    return { name: s.name, executions: s.executions, successRate, healRate, avgDuration, avgTokens, mostCommonError }
+    return { name: s.name, executions: s.executions, successRate, healRate, avgConfidence, avgDuration, avgTokens, mostCommonError }
   })
 
   const errorMap = new Map<string, number>()
@@ -4449,7 +4459,7 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     new docx.Paragraph({
       children: [
         new docx.TextRun({
-          text: "Agent QA - Execution Analysis Report",
+          text: "QMate AI - Execution Analysis Report",
           bold: true,
           size: 32,
         })
@@ -4550,7 +4560,7 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
     spacing: { before: 300, after: 150 }
   }))
 
-  const stepHeaders = ["Step Name", "Execs", "Success Rate", "Heal Rate", "Avg Duration", "Avg Tokens", "Common Failure"]
+  const stepHeaders = ["Step Name", "Execs", "Success Rate", "Heal Rate", "Confidence", "Avg Duration", "Avg Tokens", "Common Failure"]
   const stepTable = new docx.Table({
     width: { size: 100, type: docx.WidthType.PERCENTAGE },
     rows: [
@@ -4565,6 +4575,7 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
           String(step.executions),
           `${step.successRate.toFixed(1)}%`,
           step.healRate > 0 ? `${step.healRate.toFixed(1)}%` : "-",
+          step.avgConfidence !== null ? `${step.avgConfidence.toFixed(1)}%` : "-",
           formatDurationMs(step.avgDuration),
           String(Math.round(step.avgTokens)),
           step.mostCommonError || "-"
@@ -4754,4 +4765,18 @@ function generateDocxReport(testName: string, runs: RunRow[], steps: StepRow[]):
   })
 
   return docx.Packer.toBuffer(doc)
+}
+
+function calculateTestEstimatedTokens(parsedObj: any): number {
+  if (!parsedObj || !parsedObj.steps || !Array.isArray(parsedObj.steps)) return 0
+  const contextText = parsedObj.context || ''
+  const contextTokens = Math.ceil(contextText.length / 4)
+  
+  let total = 0
+  for (const step of parsedObj.steps) {
+    const stepText = typeof step === 'string' ? step : (step.step || '')
+    const stepTokens = Math.ceil(stepText.length / 4)
+    total += 2500 + 4000 + stepTokens + contextTokens + 500
+  }
+  return total
 }

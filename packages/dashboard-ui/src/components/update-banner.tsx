@@ -77,7 +77,7 @@ export function UpdateBanner({
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-medium">Update available</span>
         <span className="text-muted-foreground">
-          agent-qa v{latestVersion} is available. You are using v{installedVersion}.
+          QMate-AI v{latestVersion} is available. You are using v{installedVersion}.
         </span>
         <a
           href="https://github.com/vostride/agent-qa/releases"

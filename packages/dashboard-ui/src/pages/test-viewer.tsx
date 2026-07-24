@@ -52,6 +52,7 @@ import {
   type ViewerTopTab,
 } from "@/lib/viewer-url-state"
 import { formatDuration, formatDate, formatDateShort, normalizeTimestamp } from "@/lib/utils"
+import { yamlToFormState } from "@/lib/test-yaml-serializer"
 
 function formatRelativeCompact(iso: string): string {
   if (!iso) return ''
@@ -259,6 +260,9 @@ export default function TestViewerPage() {
     }
     return trimmed
   }, [content])
+
+  const parsedFormState = useMemo(() => yamlToFormState(content), [content])
+  const estimatedTokens = parsedFormState?.estimatedTokens
 
   usePageTitle(testName || "Test")
 
@@ -468,101 +472,127 @@ export default function TestViewerPage() {
     />
   )
 
-  const sidebarPanel = analyticsData && (
+  const sidebarPanel = (
     <aside
       data-testid="test-detail-analytics-sidebar"
       className="flex flex-col gap-0 overflow-y-auto border-t border-border md:border-t-0 md:border-l md:border-border"
     >
-      <div className="border-b border-border px-3 py-2">
-        <MetricScopeControl
-          configured={scopeConfigured}
-          mode={metricScopeMode}
-          scopedCount={analyticsData.scope?.scopedCount ?? 0}
-          totalCount={analyticsData.scope?.totalCount ?? analyticsData.total}
-          onModeChange={setMetricScopeMode}
-        />
-      </div>
-
-      <InsightsLineGrid className="grid-cols-2 divide-x divide-y-0 border-x-0 border-t-0">
-        <InsightsLineCell className="flex flex-col gap-0.5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Pass Rate</span>
-          <span className="text-xl font-semibold text-foreground">
-            {Math.round((selectedTrends ?? analyticsData.trends).passRate * 100)}%
-          </span>
-        </InsightsLineCell>
-        <InsightsLineCell className="flex flex-col gap-0.5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Avg Duration</span>
-          <span className="text-xl font-semibold text-foreground">
-            {formatDuration(analyticsData.trends.avgDuration)}
-          </span>
-        </InsightsLineCell>
-        <InsightsLineCell className="flex flex-col gap-0.5 border-t border-border px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total Runs</span>
-          <span className="text-xl font-semibold text-foreground">
-            {analyticsData.total.toLocaleString()}
-          </span>
-        </InsightsLineCell>
-        <InsightsLineCell className="flex flex-col gap-0.5 border-t border-border px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Flaky Score</span>
-          <span className="text-xl font-semibold text-foreground">
-            {(selectedFlakyScore * 100).toFixed(0)}%
-          </span>
-        </InsightsLineCell>
-      </InsightsLineGrid>
-
-      <InsightsLineGrid className="border-x-0 border-y-0">
-        <InsightsLineCell className="flex flex-col gap-2 px-3 py-3">
-          <span className="text-sm font-medium text-foreground">
-            {metricScopeMode === "scoped" && scopeConfigured ? "Scoped Runs" : "All Runs"} ({runs.length})
-          </span>
-          {runs.length === 0 ? (
-            <div className="flex items-center justify-center h-16 text-sm text-muted-foreground">
-              No runs yet
+      {estimatedTokens !== undefined && estimatedTokens !== null && (
+        <div className="border-b border-border bg-emerald-500/5 px-3 py-3 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block font-mono">
+                Original Token Estimate
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Given when test was created
+              </span>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runs.slice(0, 5).map((run) => (
-                  <TableRow
-                    key={run.id}
-                    className="relative cursor-pointer hover:bg-muted/50"
-                  >
-                    <TableCell>
-                      <Link
-                        to={routes.runDetailOrLive(run.id, run.status)}
-                        className="absolute inset-0"
-                        tabIndex={-1}
-                      />
-                      <StatusBadge status={run.status} />
-                    </TableCell>
-                    <TableCell>
-                      {run.status === "running" ? (
-                        <span className="text-blue-500 text-sm">In progress...</span>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {formatDuration(run.duration)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-muted-foreground">
-                        {formatRelativeCompact(run.createdAt)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </InsightsLineCell>
-      </InsightsLineGrid>
+            <span className="text-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+              {estimatedTokens.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {analyticsData ? (
+        <>
+          <div className="border-b border-border px-3 py-2">
+            <MetricScopeControl
+              configured={scopeConfigured}
+              mode={metricScopeMode}
+              scopedCount={analyticsData.scope?.scopedCount ?? 0}
+              totalCount={analyticsData.scope?.totalCount ?? analyticsData.total}
+              onModeChange={setMetricScopeMode}
+            />
+          </div>
+
+          <InsightsLineGrid className="grid-cols-2 divide-x divide-y-0 border-x-0 border-t-0">
+            <InsightsLineCell className="flex flex-col gap-0.5 px-3 py-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Pass Rate</span>
+              <span className="text-xl font-semibold text-foreground">
+                {Math.round((selectedTrends ?? analyticsData.trends).passRate * 100)}%
+              </span>
+            </InsightsLineCell>
+            <InsightsLineCell className="flex flex-col gap-0.5 px-3 py-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Avg Duration</span>
+              <span className="text-xl font-semibold text-foreground">
+                {formatDuration(analyticsData.trends.avgDuration)}
+              </span>
+            </InsightsLineCell>
+            <InsightsLineCell className="flex flex-col gap-0.5 border-t border-border px-3 py-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total Runs</span>
+              <span className="text-xl font-semibold text-foreground">
+                {analyticsData.total.toLocaleString()}
+              </span>
+            </InsightsLineCell>
+            <InsightsLineCell className="flex flex-col gap-0.5 border-t border-border px-3 py-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Flaky Score</span>
+              <span className="text-xl font-semibold text-foreground">
+                {(selectedFlakyScore * 100).toFixed(0)}%
+              </span>
+            </InsightsLineCell>
+          </InsightsLineGrid>
+
+          <InsightsLineGrid className="border-x-0 border-y-0">
+            <InsightsLineCell className="flex flex-col gap-2 px-3 py-3">
+              <span className="text-sm font-medium text-foreground">
+                {metricScopeMode === "scoped" && scopeConfigured ? "Scoped Runs" : "All Runs"} ({runs.length})
+              </span>
+              {runs.length === 0 ? (
+                <div className="flex items-center justify-center h-16 text-sm text-muted-foreground">
+                  No runs yet
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {runs.slice(0, 5).map((run) => (
+                      <TableRow
+                        key={run.id}
+                        className="relative cursor-pointer hover:bg-muted/50"
+                      >
+                        <TableCell>
+                          <Link
+                            to={routes.runDetailOrLive(run.id, run.status)}
+                            className="absolute inset-0"
+                            tabIndex={-1}
+                          />
+                          <StatusBadge status={run.status} />
+                        </TableCell>
+                        <TableCell>
+                          {run.status === "running" ? (
+                            <span className="text-blue-500 text-sm">In progress...</span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {formatDuration(run.duration)}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-muted-foreground">
+                            {formatRelativeCompact(run.createdAt)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </InsightsLineCell>
+          </InsightsLineGrid>
+        </>
+      ) : (
+        <div className="p-4 text-center text-xs text-muted-foreground">
+          No execution analytics loaded
+        </div>
+      )}
     </aside>
   )
 

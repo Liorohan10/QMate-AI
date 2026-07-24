@@ -1,6 +1,6 @@
 import { parseDocument, stringify, type Document, isMap } from 'yaml'
 
-const TOP_LEVEL_ORDER = ['name', 'test-id', 'target', 'use', 'meta', 'context', 'setup', 'steps', 'teardown']
+const TOP_LEVEL_ORDER = ['name', 'test-id', 'target', 'estimated-tokens', 'use', 'meta', 'context', 'setup', 'steps', 'teardown']
 
 function sortMapKeys(doc: Document): void {
   function visit(node: unknown, isRoot: boolean) {
@@ -54,11 +54,26 @@ export interface TestFormState {
   setup: string[]
   steps: StepFormState[]
   teardown: string[]
+  estimatedTokens?: number | null
 }
 
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === 'string')
+}
+
+function calculateEstimatedTokensFromData(data: any): number {
+  if (!data || !data.steps || !Array.isArray(data.steps)) return 0
+  const contextText = data.context || ''
+  const contextTokens = Math.ceil(contextText.length / 4)
+  
+  let total = 0
+  for (const step of data.steps) {
+    const stepText = typeof step === 'string' ? step : (typeof step === 'object' && step !== null ? (step.step || '') : '')
+    const stepTokens = Math.ceil(stepText.length / 4)
+    total += 2500 + 4000 + stepTokens + contextTokens + 500
+  }
+  return total
 }
 
 export function yamlToFormState(yamlContent: string): TestFormState | null {
@@ -89,6 +104,9 @@ export function yamlToFormState(yamlContent: string): TestFormState | null {
           })
         : [],
       teardown: toStringArray(data.teardown),
+      estimatedTokens: typeof data['estimated-tokens'] === 'number'
+        ? data['estimated-tokens']
+        : calculateEstimatedTokensFromData(data),
     }
   } catch {
     return null

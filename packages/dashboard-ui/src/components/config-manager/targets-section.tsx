@@ -172,7 +172,7 @@ export function TargetsSection({ config, onConfigChange }: TargetsSectionProps) 
       <ConfigSectionShell>
         <ConfigSectionHeader>
           <h2 className="text-base font-semibold">Targets</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Manage reusable named web and mobile targets referenced elsewhere in agent-qa.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Manage reusable named web and mobile targets referenced elsewhere in QMate-AI.</p>
         </ConfigSectionHeader>
         <ConfigSectionBody>
           <div className="flex flex-wrap items-start justify-between gap-3 border border-border bg-transparent rounded-none px-4 py-3">

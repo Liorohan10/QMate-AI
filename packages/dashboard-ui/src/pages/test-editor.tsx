@@ -229,6 +229,7 @@ export default function TestEditorPage() {
   const [importSource, setImportSource] = useState<'confluence' | 'jira'>('confluence')
   const [importId, setImportId] = useState('')
   const [isImporting, setIsImporting] = useState(false)
+  const [stepsGeneratedByAgent, setStepsGeneratedByAgent] = useState(false)
 
   const [filePath, setFilePath] = useState('')
   const unsaved = !isCreateMode && content !== savedContent
@@ -620,6 +621,7 @@ export default function TestEditorPage() {
       const data = await response.json()
       if (data.yaml) {
         setContent(data.yaml)
+        setStepsGeneratedByAgent(true)
         toast.success("Successfully generated test case steps from requirements!")
       } else {
         throw new Error("No YAML returned from server")
@@ -925,7 +927,7 @@ export default function TestEditorPage() {
           <div className="rounded-md border bg-muted/15 px-3 py-3">
             <div className="flex flex-wrap items-center gap-2">
               <Label className="text-xs font-medium">
-                Rovo MCP Requirements Sync
+                Confluence Requirements Sync
               </Label>
               <span className="text-[11px] text-muted-foreground">
                 Fetch requirements from Confluence or Jira and auto-generate test case YAML
@@ -955,10 +957,33 @@ export default function TestEditorPage() {
                 disabled={isImporting || !importId}
                 className="h-8 text-xs font-medium"
               >
-                {isImporting ? "Generating..." : "Generate from Rovo MCP"}
+                {isImporting ? "Generating..." : "Generate from Confluence"}
               </Button>
             </div>
           </div>
+
+          {stepsGeneratedByAgent && displayFormState?.estimatedTokens && (
+            <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-mono">
+                    Agent Token Estimate
+                  </h4>
+                  <p className="text-[13px] text-muted-foreground">
+                    Estimated tokens required to execute this test scenario:
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                    {displayFormState.estimatedTokens.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-mono block">
+                    Tokens
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {editorTabs}

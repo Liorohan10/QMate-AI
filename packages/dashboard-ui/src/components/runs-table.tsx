@@ -121,6 +121,14 @@ function sortAttributeEntries(
     })
 }
 
+function formatAttributeKeyForDisplay(key: string): string {
+  return key.startsWith("agent-qa.") ? key.replace("agent-qa.", "QMate-AI.") : key
+}
+
+function mapDisplayKeyToActual(key: string): string {
+  return key.startsWith("QMate-AI.") ? key.replace("QMate-AI.", "agent-qa.") : key
+}
+
 function AttributeSummary({
   attributes,
   activeKeys,
@@ -144,7 +152,7 @@ function AttributeSummary({
         <div className="max-h-[38px] overflow-hidden text-[12px] leading-[18px]" aria-label={fullSummary}>
           {visible.map(([key, value]) => (
             <div key={key} className="min-w-0 truncate font-mono">
-              <span className="text-muted-foreground">{key}=</span>
+              <span className="text-muted-foreground">{formatAttributeKeyForDisplay(key)}=</span>
               <span className="text-foreground">{value}</span>
             </div>
           ))}
@@ -157,7 +165,7 @@ function AttributeSummary({
         <div className="max-h-64 overflow-auto font-mono text-[11px] leading-5">
           {entries.map(([key, value]) => (
             <div key={key} className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-              <span className="truncate text-muted-foreground">{key}</span>
+              <span className="truncate text-muted-foreground">{formatAttributeKeyForDisplay(key)}</span>
               <span className="truncate text-foreground">{value}</span>
             </div>
           ))}
@@ -168,9 +176,10 @@ function AttributeSummary({
 }
 
 function predicateText(predicate: AttributePredicate) {
+  const displayKey = formatAttributeKeyForDisplay(predicate.key)
   return predicate.mode === "regex"
-    ? `${predicate.key} matches ${predicate.value}`
-    : `${predicate.key} = ${predicate.value}`
+    ? `${displayKey} matches ${predicate.value}`
+    : `${displayKey} = ${predicate.value}`
 }
 
 function AttributeFilterControl({
@@ -191,7 +200,7 @@ function AttributeFilterControl({
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    fetchRunAttributeKeys({ q: keyInput, limit: 8 })
+    fetchRunAttributeKeys({ q: mapDisplayKeyToActual(keyInput), limit: 8 })
       .then((data) => {
         if (!cancelled) setKeySuggestions(data.keys)
       })
@@ -209,7 +218,7 @@ function AttributeFilterControl({
       return
     }
     let cancelled = false
-    fetchRunAttributeValues(keyInput.trim(), { q: valueInput, limit: 8 })
+    fetchRunAttributeValues(mapDisplayKeyToActual(keyInput.trim()), { q: valueInput, limit: 8 })
       .then((data) => {
         if (!cancelled) setValueSuggestions(data.values)
       })
@@ -222,7 +231,7 @@ function AttributeFilterControl({
   }, [keyInput, open, valueInput])
 
   function applyFilter() {
-    const key = keyInput.trim()
+    const key = mapDisplayKeyToActual(keyInput.trim())
     const value = valueInput.trim()
     if (!key || !value) {
       setError("Enter an attribute key and value, or remove this filter.")
@@ -289,9 +298,9 @@ function AttributeFilterControl({
                     key={suggestion.key}
                     type="button"
                     className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-xs hover:bg-muted"
-                    onClick={() => setKeyInput(suggestion.key)}
+                    onClick={() => setKeyInput(formatAttributeKeyForDisplay(suggestion.key))}
                   >
-                    <span className="truncate font-mono">{suggestion.key}</span>
+                    <span className="truncate font-mono">{formatAttributeKeyForDisplay(suggestion.key)}</span>
                     <span className="text-muted-foreground tabular-nums">{suggestion.count}</span>
                   </button>
                 )) : (

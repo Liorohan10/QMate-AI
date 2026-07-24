@@ -47,6 +47,7 @@ export const TestDefinitionSchema = z.object({
   name: z.string(),
   target: z.string(),
   context: z.string().optional(),
+  'estimated-tokens': z.number().optional(),
   use: UseOverrideSchema.optional(),
   meta: TestMetaSchema.optional(),
   setup: z.array(HookIdSchema).optional(),

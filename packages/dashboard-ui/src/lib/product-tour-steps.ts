@@ -46,8 +46,8 @@ const lacksRun = (context: ProductTourRuntimeContext) => !context.runId
 export const foundationProductTourSteps = [
   {
     id: 'intro',
-    title: 'Welcome to Titan-QA',
-    body: 'Titan-QA lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
+    title: 'Welcome to QMate AI',
+    body: 'QMate AI lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
     centered: true,
   },
   {
@@ -60,14 +60,14 @@ export const foundationProductTourSteps = [
   {
     id: 'runs',
     title: 'Runs show outcomes',
-    body: 'Runs show outcomes, artifacts, and reasoning from every Titan-QA execution.',
+    body: 'Runs show outcomes, artifacts, and reasoning from every QMate AI execution.',
     route: routes.runs,
     targetId: 'tour-runs-table',
   },
   {
     id: 'tests',
     title: 'Tests hold natural-language checks',
-    body: 'Tests are natural-language checks that Titan-QA can run against your configured web or mobile target.',
+    body: 'Tests are natural-language checks that QMate AI can run against your configured web or mobile target.',
     route: routes.tests,
     targetId: 'tour-tests-table',
   },
@@ -81,7 +81,7 @@ export const foundationProductTourSteps = [
   {
     id: 'config',
     title: 'Config controls local setup',
-    body: 'Config controls the model, target, runtime, and dashboard setup Titan-QA uses locally.',
+    body: 'Config controls the model, target, runtime, and dashboard setup QMate AI uses locally.',
     route: routes.config,
     targetId: 'tour-config-section',
   },
@@ -96,7 +96,7 @@ export const foundationProductTourSteps = [
   {
     id: 'example-missing',
     title: 'Find the example passing test',
-    body: 'Titan-QA init normally creates Example passing test. Pick it from Tests when it is available, or create one later.',
+    body: 'QMate AI init normally creates Example passing test. Pick it from Tests when it is available, or create one later.',
     route: routes.tests,
     targetId: 'tour-tests-table',
     include: lacksExampleTest,
@@ -120,7 +120,7 @@ export const foundationProductTourSteps = [
   {
     id: 'run-detail',
     title: 'Inspect the run detail',
-    body: 'This is the value moment: inspect what Titan-QA observed, planned, executed, and verified.',
+    body: 'This is the value moment: inspect what QMate AI observed, planned, executed, and verified.',
     route: (context) => (context.runId ? routes.runDetail(context.runId) : null),
     targetId: 'tour-run-detail-reasoning',
     include: hasRun,

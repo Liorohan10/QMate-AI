@@ -118,6 +118,10 @@ function copyText(value: string) {
   void navigator.clipboard?.writeText(value)
 }
 
+function formatAttributeKeyForDisplay(key: string): string {
+  return key.startsWith("agent-qa.") ? key.replace("agent-qa.", "QMate-AI.") : key
+}
+
 function AttributesTab({ response }: { response: RunArtifactResponse }) {
   const attributes = getRunAttributes(response)
   const entries = sortedAttributeEntries(attributes)
@@ -150,7 +154,7 @@ function AttributesTab({ response }: { response: RunArtifactResponse }) {
             {entries.map(([key, value]) => (
               <tr key={key} className="border-b border-border/70 last:border-b-0">
                 <th className="w-[240px] align-top px-3 py-2 text-left font-mono text-xs font-medium text-muted-foreground">
-                  {key}
+                  {formatAttributeKeyForDisplay(key)}
                 </th>
                 <td className="align-top px-3 py-2">
                   <div className="flex min-w-0 items-start gap-2">

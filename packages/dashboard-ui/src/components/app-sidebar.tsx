@@ -50,7 +50,7 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild className="h-auto py-3">
               <Link to={routes.runs} className="group-data-[collapsible=icon]:justify-center">
                 <VostrideLogo className="size-7! shrink-0 text-turquoise-600 dark:text-turquoise-500 group-data-[collapsible=icon]:size-6!" />
-                <span className="text-[1.0625rem] font-mono font-semibold group-data-[collapsible=icon]:hidden">Titan-QA</span>
+                <span className="text-[1.0625rem] font-mono font-semibold group-data-[collapsible=icon]:hidden">QMate AI</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

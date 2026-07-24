@@ -29,7 +29,7 @@ metadata:
    - **Granularity Rule**: Keep steps atomic. Split compound actions into single distinct inputs/clicks (e.g., separate typing an address from clicking "Next").
    - **Funnels & Wizards**: For multi-step checkout or join funnels (like Genesis Energy Join), do not assume sub-steps are directly accessible. Start from the entry point (`url: https://www.genesisenergy.co.nz/join`) and guide the agent step-by-step through prerequisites before making final assertions.
    - **Detailed Context Block**: Provide a multi-line `context` description outlining prerequisites, login status, credential sources (e.g., `{{env:VARIABLE_NAME}}`), and starting views to make it easier for the execution agent to complete the test.
-   - **Use Crawl History**: If a web crawl was performed (via the dashboard Generate from Rovo MCP feature), use the ordered crawl history as the blueprint for step ordering. Every screen discovered in the crawl must contribute at least 2-4 steps.
+   - **Use Crawl History**: If a web crawl was performed (via the dashboard Generate from Confluence feature), use the ordered crawl history as the blueprint for step ordering. Every screen discovered in the crawl must contribute at least 2-4 steps.
 
 5. **Structure agent-qa Test Definitions (YAML)**
    Every test file must be structured as valid `agent-qa` YAML:

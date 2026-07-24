@@ -238,7 +238,7 @@ describe('JUnitReporter', () => {
     expect(writtenXml).toContain('</testsuite>')
   })
 
-  it('uses the Agent QA suite as the JUnit testsuite for suite runs', async () => {
+  it('uses the agent-qa suite as the JUnit testsuite for suite runs', async () => {
     const reporter = new JUnitReporter({ outputPath: 'results/junit.xml' })
     const results = [
       makeResult({ name: 'Login', filePath: 'tests/login.yaml', duration: 1000 }),

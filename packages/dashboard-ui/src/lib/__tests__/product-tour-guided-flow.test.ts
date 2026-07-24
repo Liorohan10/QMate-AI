@@ -18,16 +18,16 @@ function step(id: string, context: ProductTourRuntimeContext = {}) {
 }
 
 describe('guided first-run product tour flow', () => {
-  it('starts with installed-product Titan-QA orientation copy', () => {
+  it('starts with installed-product QMate AI orientation copy', () => {
     const intro = foundationProductTourSteps[0]
 
     expect(intro).toMatchObject({
       id: 'intro',
-      title: 'Welcome to Titan-QA',
+      title: 'Welcome to QMate AI',
       centered: true,
     })
     expect(intro.body).toBe(
-      'Titan-QA lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
+      'QMate AI lets you write tests in natural language for web and mobile. It runs them through a strict QA harness, learns from past runs, adapts when the UI changes, and shows you exactly what happened.',
     )
   })
 
@@ -75,7 +75,7 @@ describe('guided first-run product tour flow', () => {
     expect(stepIds(context)).not.toContain('example-test')
     expect(resolveProductTourStepRoute(step('example-missing', context), context)).toBe('/tests')
     expect(step('example-missing', context).body).toContain(
-      'Titan-QA init normally creates Example passing test',
+      'QMate AI init normally creates Example passing test',
     )
   })
 

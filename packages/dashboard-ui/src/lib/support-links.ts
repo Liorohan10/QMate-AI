@@ -1,7 +1,7 @@
 export const GITHUB_ISSUE_URL = 'https://github.com/vostride/agent-qa/issues/new'
 export const GITHUB_REPOSITORY_URL = 'https://github.com/vostride/agent-qa'
 export const SUPPORT_EMAIL = 'support@vostride.com'
-export const SUPPORT_FEEDBACK_SUBJECT = 'agent-qa feedback'
+export const SUPPORT_FEEDBACK_SUBJECT = 'QMate-AI feedback'
 
 export function buildFeedbackMailto(version?: string | null): string {
   const safeVersion = version?.trim() || 'unavailable'
@@ -9,7 +9,7 @@ export function buildFeedbackMailto(version?: string | null): string {
     'Please describe what happened:',
     '',
     '---',
-    'agent-qa debug info',
+    'QMate-AI debug info',
     `version: ${safeVersion}`,
     'surface: dashboard',
   ].join('\n')

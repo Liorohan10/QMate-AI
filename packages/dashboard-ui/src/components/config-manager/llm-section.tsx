@@ -87,7 +87,7 @@ const PROVIDER_LABELS = Object.fromEntries(
 ) as Record<string, string>
 
 const COMPATIBLE_PROVIDERS = new Set<string>(["openai-compatible", "anthropic-compatible"])
-const BASE_URL_HELPER = "Enter the exact endpoint base URL. agent-qa will not append paths."
+const BASE_URL_HELPER = "Enter the exact endpoint base URL. QMate-AI will not append paths."
 const COMPATIBLE_UNAUTHENTICATED_COPY = "Testing without a saved credential."
 const GEMINI_MISSING_COPY = "Save a Gemini API key for this config before testing."
 
