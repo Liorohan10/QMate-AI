@@ -1,10 +1,4 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vostride/agent-qa/main/docs/assets/readme-banner.png" alt="agent-qa banner"/>
-
-  [![npm](https://img.shields.io/npm/dm/agent-qa?style=flat&colorA=13110f&colorB=196872)](https://npm.chart.dev/agent-qa?primary=neutral&gray=neutral&theme=dark)
-  [![npm version](https://img.shields.io/npm/v/agent-qa.svg?style=flat&colorA=13110f&colorB=196872)](https://www.npmjs.com/package/agent-qa)
-  [![GitHub stars](https://img.shields.io/github/stars/vostride/agent-qa?style=flat&colorA=13110f&colorB=196872)](https://github.com/vostride/agent-qa/stargazers)
-
   <p>
     <a href="https://vostride.com/docs/agent-qa">Docs</a>
     ·
