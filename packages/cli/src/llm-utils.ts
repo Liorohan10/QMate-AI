@@ -2,6 +2,8 @@ import { dirname, resolve as resolvePath } from 'node:path'
 import { DEFAULT_ANTHROPIC_MODEL } from './model-defaults.js'
 
 export type BuiltInLLMProviderMode =
+  | 'codex-app-server'
+  | 'codex'
   | 'openai-compatible'
   | 'anthropic-compatible'
   | 'openai-subscription'
@@ -125,7 +127,7 @@ export function resolveLLMModels(config: {
   verifier: LLMConfigLike
   configName: string
 } {
-  const defaults: LLMConfigLike = { provider: 'anthropic-subscription', model: DEFAULT_ANTHROPIC_MODEL }
+  const defaults: LLMConfigLike = { provider: 'codex-app-server', model: 'gpt-5.6-luna' }
   if (!config.registry?.llms || !config.use?.llm) {
     return { planner: defaults, verifier: defaults, configName: '' }
   }

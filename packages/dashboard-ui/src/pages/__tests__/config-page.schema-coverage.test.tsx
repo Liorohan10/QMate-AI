@@ -316,11 +316,14 @@ describe('ConfigPage schema coverage', () => {
 
   it('exposes only the current LLM provider contract in UI fixtures', () => {
     expect(LLM_PROVIDER_OPTIONS.map((option) => option.value)).toEqual([
+      'codex-app-server',
       'openai-compatible',
       'anthropic-compatible',
       'gemini',
     ])
     expect([...LLM_PROVIDER_COMPLETION_VALUES]).toEqual([
+      'codex-app-server',
+      'codex',
       'openai-compatible',
       'anthropic-compatible',
       'openai-subscription',
@@ -328,6 +331,7 @@ describe('ConfigPage schema coverage', () => {
       'gemini',
     ])
     expect(LLM_PROVIDER_OPTIONS.map((option) => option.label)).toEqual([
+      'Codex CLI (Local App Server)',
       'OpenAI-compatible',
       'Anthropic-compatible',
       'Gemini',

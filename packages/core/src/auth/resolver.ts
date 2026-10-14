@@ -132,6 +132,10 @@ export async function resolveLLMAuth(
   const credential = await getCredential(configName, authPath)
   const plugin = getLLMAuthProviderPlugin(llmConfig.provider)
 
+  if (llmConfig.provider === 'codex-app-server' || llmConfig.provider === 'codex') {
+    return unauthenticated(configName, llmConfig.provider as any)
+  }
+
   if (!credential) {
     if (llmConfig.provider === 'gemini') {
       return {

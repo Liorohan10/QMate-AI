@@ -489,6 +489,10 @@ export class LiveSession {
         })
       }
 
+      if (!adapter) {
+        throw new Error(`Failed to initialize ${platformLabel} adapter`)
+      }
+
       try {
         await adapter.setup(platformConfig)
       } catch (err) {

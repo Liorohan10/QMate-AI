@@ -792,6 +792,7 @@ describe('ConfigPage schema-driven shell', () => {
     const view = await renderAt('/config?bucket=registry&item=llms')
 
     expect(LLM_PROVIDER_OPTIONS.map((option) => option.value)).toEqual([
+      'codex-app-server',
       'openai-compatible',
       'anthropic-compatible',
       'gemini',
@@ -846,7 +847,7 @@ describe('ConfigPage schema-driven shell', () => {
     const endpointHelp = document.body.querySelector('button[aria-label="Compatible endpoint help"]')
 
     expect(document.body.textContent).toContain('Base URL')
-    expect(document.body.textContent).toContain('Enter the exact endpoint base URL. agent-qa will not append paths.')
+    expect(document.body.textContent).toContain('Enter the exact endpoint base URL.')
     expect(endpointHelp).not.toBeNull()
     expect(baseUrlInput?.placeholder).toBe('https://openrouter.ai/api/v1')
     expect(baseUrlInput?.value).toBe('https://openrouter.ai/api/v1')

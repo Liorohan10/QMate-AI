@@ -202,7 +202,7 @@ describe('createDashboardCommand', () => {
     )
   })
 
-  it('uses the current Claude fallback model when no LLM config is selected', async () => {
+  it('uses the Codex App Server fallback model when no LLM config is selected', async () => {
     mockResolveConfig.mockResolvedValue(makeDashboardConfig())
 
     const program = new Command()
@@ -216,8 +216,8 @@ describe('createDashboardCommand', () => {
     expect(mockStartServer).toHaveBeenCalledWith(
       expect.objectContaining({
         llmConfig: expect.objectContaining({
-          provider: 'anthropic-subscription',
-          model: 'claude-sonnet-4-6',
+          provider: 'codex-app-server',
+          model: 'gpt-5.6-luna',
         }),
       }),
     )

@@ -1,6 +1,8 @@
 import type { LanguageModel } from 'ai'
 
 const SUPPORTED_PROVIDERS = [
+  'codex-app-server',
+  'codex',
   'openai-compatible',
   'anthropic-compatible',
   'openai-subscription',
@@ -54,6 +56,9 @@ export async function createModel(config: ModelConfig): Promise<LanguageModel> {
   }
 
   switch (config.provider) {
+    case 'codex-app-server':
+    case 'codex':
+      return createCodexAppServerModel(config)
     case 'openai-compatible':
       return createOpenAICompatibleModel(config)
     case 'anthropic-compatible':
@@ -69,6 +74,13 @@ export async function createModel(config: ModelConfig): Promise<LanguageModel> {
         `Unknown provider "${config.provider}". Supported: ${SUPPORTED_PROVIDERS.join(', ')} or plugin providers with modelAdapter.`,
       )
   }
+}
+
+async function createCodexAppServerModel(config: ModelConfig): Promise<LanguageModel> {
+  const { CodexAppServerModel } = await import('./codex-app-server/index.js')
+  return new CodexAppServerModel({
+    model: config.model || 'gpt-5.6-luna',
+  }) as unknown as LanguageModel
 }
 
 async function createAnthropicMessagesModel(config: ModelConfig): Promise<LanguageModel> {

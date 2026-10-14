@@ -1,6 +1,8 @@
 import * as monaco from 'monaco-editor'
 
 export const LLM_PROVIDER_COMPLETION_VALUES = [
+  'codex-app-server',
+  'codex',
   'openai-compatible',
   'anthropic-compatible',
   'openai-subscription',

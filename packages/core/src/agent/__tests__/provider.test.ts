@@ -259,14 +259,25 @@ describe('provider dispatch', () => {
     })).toBeUndefined()
   })
 
-  it('rejects unknown providers with the five supported modes in the message', async () => {
+  it('rejects unknown providers with the supported modes in the message', async () => {
     const { createModel } = await import('../provider.js')
 
     await expect(createModel({
       provider: 'anthropic',
       model: 'claude-sonnet-4-20250514',
     } as any)).rejects.toThrow(
-      'Supported: openai-compatible, anthropic-compatible, openai-subscription, anthropic-subscription, gemini',
+      'Supported: codex-app-server, codex, openai-compatible, anthropic-compatible, openai-subscription, anthropic-subscription, gemini',
     )
+  })
+
+  it('dispatches codex-app-server through createCodexAppServerModel', async () => {
+    const { createModel } = await import('../provider.js')
+    const model = await createModel({
+      provider: 'codex-app-server',
+      model: 'gpt-5.6-luna',
+    })
+
+    expect(model.provider).toBe('codex-app-server')
+    expect(model.modelId).toBe('gpt-5.6-luna')
   })
 })

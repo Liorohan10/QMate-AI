@@ -21,6 +21,8 @@ vi.mock('monaco-editor', () => ({
 import { LLM_PROVIDER_COMPLETION_VALUES } from '../yaml-completions'
 
 const EXPECTED_PROVIDER_MODES = [
+  'codex-app-server',
+  'codex',
   'openai-compatible',
   'anthropic-compatible',
   'openai-subscription',
@@ -31,7 +33,7 @@ const EXPECTED_PROVIDER_MODES = [
 const completionSource = readFileSync(new URL('../yaml-completions.ts', import.meta.url), 'utf-8')
 
 describe('LLM provider static contract', () => {
-  it('yaml completions expose exactly five provider modes', () => {
+  it('yaml completions expose expected provider modes', () => {
     expect([...LLM_PROVIDER_COMPLETION_VALUES]).toEqual([...EXPECTED_PROVIDER_MODES])
   })
 

@@ -75,6 +75,7 @@ import {
 } from "@/lib/api"
 
 export const LLM_PROVIDER_OPTIONS = [
+  { value: "codex-app-server", label: "Codex CLI (Local App Server)" },
   { value: "openai-compatible", label: "OpenAI-compatible" },
   { value: "anthropic-compatible", label: "Anthropic-compatible" },
   { value: "gemini", label: "Gemini" },
@@ -93,6 +94,11 @@ const GEMINI_MISSING_COPY = "Save a Gemini API key for this config before testin
 
 function defaultProviderMetadata(): LLMProviderMetadata[] {
   return [
+    {
+      id: "codex-app-server",
+      label: "Codex CLI (Local App Server)",
+      auth: { kind: "api-key", credentialTypes: ["api-key"], optional: true },
+    },
     {
       id: "openai-compatible",
       label: "OpenAI-compatible",

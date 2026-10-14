@@ -31,6 +31,8 @@ export { LLMVerifier, VerificationResultSchema } from './verifier.js'
 
 export { createModel, getProviderOptions } from './provider.js'
 export type { ModelConfig, ProviderOptions } from './provider.js'
+export { CodexAppServerModel, CodexAppServerClient, getCodexAppServerClient, resetCodexAppServerClient } from './codex-app-server/index.js'
+export type { CodexAppServerModelConfig, CodexAppServerClientOptions } from './codex-app-server/index.js'
 
 export { buildSystemPrompt, buildStepPrompt, buildVerificationPrompt, buildAssertionPrompt, buildExtractionPrompt } from './prompts.js'
 

@@ -50,8 +50,8 @@ async function startDashboardBackedServices(
     const defaultCfg = registryLlms.find((c: any) => c.name === useLlm) ?? {}
     const configName = defaultCfg.name ?? useLlm ?? ''
     const llmConfig: LLMConfigLike = {
-      provider: defaultCfg.provider ?? 'anthropic-subscription',
-      model: defaultCfg.model ?? DEFAULT_ANTHROPIC_MODEL,
+      provider: defaultCfg.provider ?? 'codex-app-server',
+      model: defaultCfg.model ?? 'gpt-5.6-luna',
       baseURL: defaultCfg.baseURL,
       providerHeaders: defaultCfg.providerHeaders,
       screenshotSize: defaultCfg.screenshotSize,
