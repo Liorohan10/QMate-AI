@@ -46,6 +46,9 @@ async function seedWorkspace() {
     'workspace:',
     '  testMatch:',
     '    - specs/web/**/*.yaml',
+    '  suiteMatch:',
+    '    - cases/**/*.suite.yaml',
+    '  hooksFile: hooks.yaml',
     '  agentRules: agent-rules.md',
     '  envFile: .env',
     '  secretsFile: .env.secrets.local',
@@ -108,7 +111,7 @@ describe('validate command workspace resolution', () => {
   it('rejects explicit files outside configured workspace patterns', async () => {
     await runValidate('tests/legacy.yaml')
 
-    expect(output()).toContain('File is not matched by configured workspace testMatch patterns')
+    expect(output()).toContain('File is not matched by configured workspace testMatch or suiteMatch patterns')
     expect(process.exitCode).toBe(1)
   })
 })

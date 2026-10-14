@@ -149,6 +149,51 @@ describe('CodexAppServerModel', () => {
     expect(result.finishReason.unified).toBe('tool-calls')
   })
 
+  it('injects JSON schema instruction and normalizes decisions when responseFormat is json', async () => {
+    const mockClient = {
+      runTurn: vi.fn().mockResolvedValue({
+        text: '```json\n{"decisions": [{"action": "noop", "reasoning": "Simple navigation"}]}\n```',
+        tokenUsage: { inputTokens: 60, outputTokens: 20 },
+      }),
+    } as unknown as CodexAppServerClient
+
+    const model = new CodexAppServerModel({ model: 'gpt-5.6-luna', client: mockClient })
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Curate observations for this test' }],
+        },
+      ],
+      responseFormat: {
+        type: 'json',
+        schema: {
+          type: 'object',
+          properties: {
+            decisions: { type: 'array' },
+          },
+        },
+      },
+    })
+
+    expect(mockClient.runTurn).toHaveBeenCalledWith(
+      expect.stringContaining('[CRITICAL JSON OUTPUT INSTRUCTION]'),
+      [],
+      undefined
+    )
+    expect(result.finishReason).toEqual({ unified: 'stop', raw: 'stop' })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.decisions[0]).toEqual({
+      action: 'noop',
+      title: '',
+      content: '',
+      scope: 'test',
+      observationId: '',
+      reasoning: 'Simple navigation',
+    })
+  })
+
   it('createCodexAppServerModel initializes client and returns model', () => {
     const mockClient = {} as unknown as CodexAppServerClient
     const model = createCodexAppServerModel({
@@ -159,3 +204,4 @@ describe('CodexAppServerModel', () => {
     expect(model.provider).toBe('codex-app-server')
   })
 })
+

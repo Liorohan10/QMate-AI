@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { MemoryConfigSchema } from '../../schema/services-schema.js'
 import { ServicesSchema } from '../../schema/services-schema.js'
@@ -97,18 +98,18 @@ describe('ServicesSchema with memory', () => {
 
 describe('resolveMemoryRoot', () => {
   it('resolves the default memory root from the config directory', () => {
-    expect(resolveMemoryRoot({}, '/workspace/project')).toBe('/workspace/project/agent-qa-memory')
+    expect(resolveMemoryRoot({}, '/workspace/project')).toBe(path.resolve('/workspace/project', 'agent-qa-memory'))
   })
 
   it('resolves a relative custom memory root from the config directory', () => {
     expect(
       resolveMemoryRoot({ services: { memory: { dir: '.agent-qa/custom-memory' } } }, '/workspace/project'),
-    ).toBe('/workspace/project/.agent-qa/custom-memory')
+    ).toBe(path.resolve('/workspace/project', '.agent-qa/custom-memory'))
   })
 
   it('preserves an absolute custom memory root', () => {
     expect(
       resolveMemoryRoot({ services: { memory: { dir: '/var/tmp/agent-qa-memory' } } }, '/workspace/project'),
-    ).toBe('/var/tmp/agent-qa-memory')
+    ).toBe(path.normalize('/var/tmp/agent-qa-memory'))
   })
 })

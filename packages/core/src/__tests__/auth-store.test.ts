@@ -45,7 +45,7 @@ describe('auth store', () => {
     expect(result).toEqual(cred)
   })
 
-  it('writes file with 0o600 permissions', async () => {
+  it.skipIf(process.platform === 'win32')('writes file with 0o600 permissions', async () => {
     const cred: AuthCredential = { type: 'api', provider: 'openai', key: 'sk-test' }
     await writeAuth('openai', cred, authPath)
     const s = await stat(authPath)

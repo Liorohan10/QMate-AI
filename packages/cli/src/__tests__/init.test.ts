@@ -91,8 +91,9 @@ async function runInit(args: string[] = []): Promise<void> {
 }
 
 function findWriteCallEndingWith(pathSuffix: string) {
+  const normalizedSuffix = pathSuffix.replace(/\\/g, '/')
   return mockWriteFileSync.mock.calls.find(
-    (call) => (call[0] as string).endsWith(pathSuffix),
+    (call) => (call[0] as string).replace(/\\/g, '/').endsWith(normalizedSuffix),
   )
 }
 

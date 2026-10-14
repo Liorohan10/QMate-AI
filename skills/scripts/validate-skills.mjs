@@ -11,7 +11,7 @@ for (const skill of skills) {
   const openAiPath = join(dir, 'agents/openai.yaml')
   if (!existsSync(skillPath)) throw new Error(`${skill}: missing SKILL.md`)
   if (!existsSync(openAiPath)) throw new Error(`${skill}: missing agents/openai.yaml`)
-  const body = readFileSync(skillPath, 'utf-8')
+  const body = readFileSync(skillPath, 'utf-8').replace(/\r\n/g, '\n')
   if (!body.startsWith('---\nname: ')) throw new Error(`${skill}: missing frontmatter name`)
   if (!body.includes('description: ')) throw new Error(`${skill}: missing frontmatter description`)
   if (!body.includes('agent_qa_')) throw new Error(`${skill}: missing MCP tool guidance`)

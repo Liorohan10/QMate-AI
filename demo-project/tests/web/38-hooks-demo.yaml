@@ -1,0 +1,11 @@
+test-id: t_self-serial-plash-peg-gender-than-impact-scious-tour-ata
+name: Hooks demo
+platform: web
+setup:
+  - Generate Timestamp
+  - Fetch API Data
+teardown:
+  - Log Cleanup
+steps:
+  - Open the hooks demo page
+  - Verify hook-provided data is visible

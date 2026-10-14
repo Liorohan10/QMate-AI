@@ -65,11 +65,11 @@ export interface CuratorContext {
 }
 const CuratorActionSchema = z.object({
   action: z.enum(['add', 'update', 'deprecate', 'noop']),
-  title: z.string().describe('Only required for "add" action; set to empty string "" otherwise'),
-  content: z.string().describe('Only required for "add" action; set to empty string "" otherwise'),
-  scope: z.enum(['product', 'suite', 'test']).describe('Only required for "add" action; set to "test" as default for other actions'),
-  observationId: z.string().describe('Only required for "update" and "deprecate" actions; set to empty string "" otherwise'),
-  reasoning: z.string(),
+  title: z.string().default('').describe('Only required for "add" action; set to empty string "" otherwise'),
+  content: z.string().default('').describe('Only required for "add" action; set to empty string "" otherwise'),
+  scope: z.enum(['product', 'suite', 'test']).default('test').describe('Only required for "add" action; set to "test" as default for other actions'),
+  observationId: z.string().default('').describe('Only required for "update" and "deprecate" actions; set to empty string "" otherwise'),
+  reasoning: z.string().default(''),
 })
 
 export const CuratorResponseSchema = z.object({

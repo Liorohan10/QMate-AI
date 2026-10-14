@@ -130,6 +130,14 @@ Respond with ONLY a JSON object (no markdown, no extra commentary) in this forma
   }
 }
 `
+      } else if (options.responseFormat?.type === 'json') {
+        const schema = options.responseFormat.schema
+        promptText += `\n\n[CRITICAL JSON OUTPUT INSTRUCTION]
+You MUST respond with a valid JSON object ONLY.
+Do NOT include any markdown code formatting, triple backticks (\`\`\`), or commentary before or after the JSON.
+The JSON output must strictly conform to this schema:
+${schema ? JSON.stringify(schema, null, 2) : '{}'}
+`
       }
 
       // Execute turn via Codex CLI App Server
@@ -170,8 +178,23 @@ Respond with ONLY a JSON object (no markdown, no extra commentary) in this forma
         }
       }
 
-      // Non-tool response (e.g. verifier, asserter, connection check)
-      const parsedJson = extractJson(rawText)
+      // Non-tool response (e.g. verifier, asserter, curator, connection check)
+      let parsedJson = extractJson(rawText)
+
+      // Normalize curator decisions if present so optional fields default safely
+      if (options.responseFormat?.type === 'json' && parsedJson && typeof parsedJson === 'object') {
+        if (Array.isArray(parsedJson.decisions)) {
+          parsedJson.decisions = parsedJson.decisions.map((d: any) => ({
+            action: d?.action || 'noop',
+            title: d?.title || '',
+            content: d?.content || '',
+            scope: d?.scope || 'test',
+            observationId: d?.observationId || '',
+            reasoning: d?.reasoning || d?.justification || '',
+          }))
+        }
+      }
+
       const textOutput = parsedJson ? JSON.stringify(parsedJson) : rawText
 
       return {

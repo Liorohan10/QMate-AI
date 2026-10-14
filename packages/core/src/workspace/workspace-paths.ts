@@ -3,7 +3,7 @@ import path from 'node:path'
 import { glob } from 'glob'
 import type { AgentQaConfig } from '../types/config.js'
 
-export type WorkspaceFileKind = 'test'
+export type WorkspaceFileKind = 'test' | 'suite'
 
 export interface ResolvedWorkspaceFile {
   configuredPath: string
@@ -21,7 +21,9 @@ export interface ResolvedWorkspacePaths {
   configPath: string
   configDir: string
   testMatch: string[]
+  suiteMatch: string[]
   testPathIgnore: string[]
+  hooksFile: ResolvedWorkspaceFile
   agentRules: ResolvedWorkspaceFile
   envFile: ResolvedWorkspaceFile
   secretsFile: ResolvedWorkspaceFile
@@ -131,7 +133,7 @@ function matchesAnyPattern(workspaceRelativePath: string, patterns: string[]): b
 }
 
 function getKindPatterns(workspace: ResolvedWorkspacePaths, kind: WorkspaceFileKind): string[] {
-  return workspace.testMatch
+  return kind === 'test' ? workspace.testMatch : workspace.suiteMatch
 }
 
 function isIgnored(workspace: ResolvedWorkspacePaths, workspaceRelativePath: string): boolean {
@@ -151,7 +153,9 @@ export function resolveWorkspacePaths(input: ResolveWorkspacePathsInput): Resolv
     configPath,
     configDir,
     testMatch: assertNonEmptyArray(workspace.testMatch, 'workspace.testMatch'),
+    suiteMatch: assertNonEmptyArray(workspace.suiteMatch, 'workspace.suiteMatch'),
     testPathIgnore: workspace.testPathIgnore ?? [],
+    hooksFile: resolveWorkspaceScalar(configDir, 'workspace.hooksFile', workspace.hooksFile),
     agentRules: resolveWorkspaceScalar(configDir, 'workspace.agentRules', workspace.agentRules),
     envFile: resolveWorkspaceScalar(configDir, 'workspace.envFile', workspace.envFile),
     secretsFile: resolveWorkspaceScalar(configDir, 'workspace.secretsFile', workspace.secretsFile),
@@ -159,6 +163,7 @@ export function resolveWorkspacePaths(input: ResolveWorkspacePathsInput): Resolv
 
   if (input.requireExistingFiles) {
     for (const [key, file] of [
+      ['workspace.hooksFile', resolved.hooksFile],
       ['workspace.agentRules', resolved.agentRules],
       ['workspace.envFile', resolved.envFile],
       ['workspace.secretsFile', resolved.secretsFile],

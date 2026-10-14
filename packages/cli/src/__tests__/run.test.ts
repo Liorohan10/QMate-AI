@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { existsSync, mkdirSync, mkdtempSync, renameSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Command } from 'commander'
 
@@ -365,21 +365,24 @@ vi.mock('@vostride/agent-qa-core', () => {
   generateRunId: mockGenerateRunId,
   isPathInsideDir: vi.fn((candidatePath: string) => !candidatePath.includes('..')),
   resolveWorkspacePaths: vi.fn(({ config, configPath }: any) => {
-    const configDir = String(configPath).includes('/')
-      ? String(configPath).split('/').slice(0, -1).join('/')
-      : process.cwd()
-    for (const key of ['testMatch', 'agentRules', 'envFile', 'secretsFile']) {
+    const configDir = dirname(resolve(configPath))
+    for (const key of ['testMatch', 'suiteMatch', 'hooksFile', 'agentRules', 'envFile', 'secretsFile']) {
       if (config.workspace[key] === undefined) {
         throw new Error(`workspace.${key} is required`)
       }
     }
-    const resolveConfigured = (value: string) => value.startsWith('/') ? value : `${configDir}/${value}`
+    const resolveConfigured = (value: string) => isAbsolute(value) ? value : resolve(configDir, value)
     return {
       configPath,
       configDir,
       testMatch: config.workspace.testMatch,
-      suiteMatch: [],
+      suiteMatch: config.workspace.suiteMatch,
       testPathIgnore: config.workspace.testPathIgnore ?? [],
+      hooksFile: {
+        configuredPath: config.workspace.hooksFile,
+        absolutePath: resolveConfigured(config.workspace.hooksFile),
+        workspaceRelativePath: config.workspace.hooksFile,
+      },
       agentRules: {
         configuredPath: config.workspace.agentRules,
         absolutePath: resolveConfigured(config.workspace.agentRules),
@@ -519,7 +522,9 @@ function defaultConfig() {
   return {
     workspace: {
       testMatch: ['tests/**/*.yaml'],
+      suiteMatch: ['suites/**/*.suite.yaml'],
       testPathIgnore: [] as string[],
+      hooksFile: defaultHooksFilePath ?? 'hooks.yaml',
       agentRules: defaultAgentRulesFilePath ?? './agent-rules.md',
       envFile: defaultEnvFilePath ?? '.env',
       secretsFile: defaultSecretsFilePath ?? '.env.secrets.local',
@@ -985,7 +990,7 @@ describe('run command — auth state consumption', () => {
     expect(mockRunTestWithRetry).toHaveBeenCalled()
   })
 
-  it.skip('passes direct auth state to setup, inline, and teardown hook sandbox options', async () => {
+  it('passes direct auth state to setup, inline, and teardown hook sandbox options', async () => {
     mockGlob.mockResolvedValue(['tests/auth.yaml'])
     mockParseAllTests.mockResolvedValue({
       tests: [makeTest({
@@ -1042,7 +1047,7 @@ describe('run command — auth state consumption', () => {
     }))
   })
 
-  it.skip('captures direct auth state from scratch and gives teardown hooks the captured state', async () => {
+  it('captures direct auth state from scratch and gives teardown hooks the captured state', async () => {
     mockGlob.mockResolvedValue(['tests/auth.yaml'])
     mockParseAllTests.mockResolvedValue({
       tests: [makeTest({
@@ -1225,7 +1230,7 @@ describe('run command — auth state consumption', () => {
     expect(allErrors).toContain('use.mobile.appState: preserve')
   })
 
-  it.skip('passes suite auth state to the shared platform config when child tests omit auth state', async () => {
+  it('passes suite auth state to the shared platform config when child tests omit auth state', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Web Suite',
@@ -1248,7 +1253,7 @@ describe('run command — auth state consumption', () => {
     }))
   })
 
-  it.skip('allows a suite child test to repeat the same auth state', async () => {
+  it('allows a suite child test to repeat the same auth state', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Web Suite',
@@ -1272,7 +1277,7 @@ describe('run command — auth state consumption', () => {
     }))
   })
 
-  it.skip('passes suite auth-state capture config without loading when load is false', async () => {
+  it('passes suite auth-state capture config without loading when load is false', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Web Suite',
@@ -1296,7 +1301,7 @@ describe('run command — auth state consumption', () => {
     }))
   })
 
-  it.skip('allows a suite child object-form auth state with the same name and ignores child capture flags', async () => {
+  it('allows a suite child object-form auth state with the same name and ignores child capture flags', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Web Suite',
@@ -1320,7 +1325,7 @@ describe('run command — auth state consumption', () => {
     expect(suiteConfig.authStateCapture).toBeUndefined()
   })
 
-  it.skip('hard-fails a suite child test with a different auth state before suite execution', async () => {
+  it('hard-fails a suite child test with a different auth state before suite execution', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Web Suite',
@@ -1475,7 +1480,7 @@ describe('run command — mobile app state and device resolution', () => {
     expect(mockRunTestWithRetry).toHaveBeenCalled()
   })
 
-  it.skip('uses suite-level use.device for mobile suites', async () => {
+  it('uses suite-level use.device for mobile suites', async () => {
     const { resolveMobileRunConfig } = await import('@vostride/agent-qa-core')
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockResolveConfig.mockResolvedValue(mobileConfig())
@@ -1499,7 +1504,7 @@ describe('run command — mobile app state and device resolution', () => {
     }))
   })
 
-  it.skip('accepts one shared child use.device for mobile suites without suite use.device', async () => {
+  it('accepts one shared child use.device for mobile suites without suite use.device', async () => {
     const { resolveMobileRunConfig } = await import('@vostride/agent-qa-core')
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockResolveConfig.mockResolvedValue(mobileConfig())
@@ -1521,7 +1526,7 @@ describe('run command — mobile app state and device resolution', () => {
     }))
   })
 
-  it.skip('fails mobile suites with no suite or child device', async () => {
+  it('fails mobile suites with no suite or child device', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockResolveConfig.mockResolvedValue(mobileConfig())
     mockMobileTarget()
@@ -1542,7 +1547,7 @@ describe('run command — mobile app state and device resolution', () => {
     expect(allErrors).toContain('Select a device for this mobile suite')
   })
 
-  it.skip('fails mobile suites whose child tests use multiple devices', async () => {
+  it('fails mobile suites whose child tests use multiple devices', async () => {
     const { rootDir, suitePath, configPath } = await createTempSuiteWorkspace()
     await writeFile(join(rootDir, 'tests', 'a.yaml'), 'name: A\n')
     await writeFile(join(rootDir, 'tests', 'b.yaml'), 'name: B\n')
@@ -1575,7 +1580,7 @@ describe('run command — mobile app state and device resolution', () => {
     expect(allErrors).toContain('set suite use.device or split the suite')
   })
 
-  it.skip('runs web suites without device settings', async () => {
+  it('runs web suites without device settings', async () => {
     const { resolveMobileRunConfig } = await import('@vostride/agent-qa-core')
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     const cfg = defaultConfig()
@@ -1788,7 +1793,7 @@ describe('run command — run attributes', () => {
     })
   })
 
-  it.skip('recomputes inherited runner attributes after suite BrowserStack device resolution', async () => {
+  it('recomputes inherited runner attributes after suite BrowserStack device resolution', async () => {
     const { resolveMobileRunConfig } = await import('@vostride/agent-qa-core')
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     const cfg = defaultConfig()
@@ -2153,7 +2158,7 @@ describe('run command — reporter integration', () => {
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it.skip('adds the analytics reporter to actual suite execution and flushes after completion', async () => {
+  it('adds the analytics reporter to actual suite execution and flushes after completion', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Smoke Suite',
@@ -2181,7 +2186,7 @@ describe('run command — reporter integration', () => {
     expect(mockAnalyticsRunReporterInstance.flush).toHaveBeenCalled()
   })
 
-  it.skip.each([
+  it.each([
     ['passing', 'passed', 0],
     ['failing', 'failed', 1],
   ])('prints the update notice once after %s suite-only execution', async (_label, suiteStatus, exitCode) => {
@@ -2202,7 +2207,7 @@ describe('run command — reporter integration', () => {
     expect(exitSpy).toHaveBeenCalledWith(exitCode)
   })
 
-  it.skip('prints the update notice once after --all suites and direct tests finish', async () => {
+  it('prints the update notice once after --all suites and direct tests finish', async () => {
     const { configPath } = await setupAllRun()
 
     await runCommandWithGlobalArgs(['--config', configPath], '--all')
@@ -2677,7 +2682,7 @@ describe('run command — reporter integration', () => {
     expect(mockRunAccessibilityCheck).toHaveBeenCalledWith(page, options)
   })
 
-  it.skip('passes services.accessibility into suite execution', async () => {
+  it('passes services.accessibility into suite execution', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     const cfg = defaultConfig()
     const accessibility = {
@@ -2879,7 +2884,7 @@ describe('run command — reporter integration', () => {
     )
   })
 
-  it.skip('passes run ID through setup hook failure result before execution', async () => {
+  it('passes run ID through setup hook failure result before execution', async () => {
     const runId = 'r_setup-alpha-bravo-charlie-delta-echo-foxtrot-golf-hotel-india'
     mockGenerateRunId.mockReturnValueOnce(runId)
     const { rootDir, testPath, configPath } = await createTempSuiteWorkspace()
@@ -3096,7 +3101,7 @@ describe('run command — reporter integration', () => {
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it.skip('starts two web suite parents concurrently when global use.parallel is true', async () => {
+  it('starts two web suite parents concurrently when global use.parallel is true', async () => {
     const { configPath, suiteA, suiteB } = await createMultiSuiteWorkspace()
     const cfg = defaultConfig()
     ;(cfg.use as any).parallel = true
@@ -3127,7 +3132,7 @@ describe('run command — reporter integration', () => {
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it.skip('runs web suite parents sequentially when global use.parallel is false', async () => {
+  it('runs web suite parents sequentially when global use.parallel is false', async () => {
     const { configPath, suiteA, suiteB } = await createMultiSuiteWorkspace()
     const cfg = defaultConfig()
     ;(cfg.use as any).parallel = false
@@ -3160,7 +3165,7 @@ describe('run command — reporter integration', () => {
     expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
-  it.skip('treats suite-level use.parallel false as a suite parent barrier', async () => {
+  it('treats suite-level use.parallel false as a suite parent barrier', async () => {
     const { configPath, suiteA, suiteB, suiteC } = await createMultiSuiteWorkspace()
     const cfg = defaultConfig()
     ;(cfg.use as any).parallel = true
@@ -3376,7 +3381,7 @@ describe('run command — dashboard video recording root', () => {
     )
   })
 
-  it.skip('uses artifactsDir/videos for suite recording in dashboard mode', async () => {
+  it('uses artifactsDir/videos for suite recording in dashboard mode', async () => {
     const { rootDir, suitePath, configPath } = await createTempSuiteWorkspace()
     const cfg = defaultConfig()
     cfg.services.dashboard = { dbPath: '.agent-qa/runs.db', artifactsDir: 'dashboard-artifacts' } as any
@@ -3606,7 +3611,7 @@ describe('run command — runtime cache paths', () => {
     expect(reporterContext.artifact.config.cache.enabled).toBe(true)
   })
 
-  it.skip('disables suite cache when use.cache is false', async () => {
+  it('disables suite cache when use.cache is false', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Smoke Suite',
@@ -3626,7 +3631,7 @@ describe('run command — runtime cache paths', () => {
     expect(suiteConfig.artifactContext.config.cache.enabled).toBe(false)
   })
 
-  it.skip('keeps suite cache enabled when use.cache is absent', async () => {
+  it('keeps suite cache enabled when use.cache is absent', async () => {
     const { suitePath, configPath } = await createTempSuiteWorkspace()
     mockParseSuiteFile.mockResolvedValue({
       name: 'Smoke Suite',
@@ -3715,6 +3720,7 @@ describe('run command — test discovery from config', () => {
     await runCommand('--dry-run', 'custom/**/*.yaml')
 
     expect(mockGlob).toHaveBeenCalledWith('src/**/*.test.yaml', expect.objectContaining({ ignore: [] }))
+    expect(mockGlob).toHaveBeenCalledWith('suites/**/*.suite.yaml', expect.objectContaining({ ignore: [] }))
     expect(mockGlob).not.toHaveBeenCalledWith('custom/**/*.yaml', expect.anything())
     expect(mockParseAllTests).not.toHaveBeenCalled()
     const allErrors = errorSpy.mock.calls.map((c: string[]) => c.join(' ')).join('\n')

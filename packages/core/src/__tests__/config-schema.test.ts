@@ -19,7 +19,9 @@ import {
 
 const validWorkspace = {
   testMatch: ['tests/**/*.yaml'],
+  suiteMatch: ['suites/**/*.suite.yaml'],
   testPathIgnore: ['tests/skip/**'],
+  hooksFile: 'hooks.yaml',
   agentRules: './agent-rules.md',
   envFile: '.env',
   secretsFile: '.env.secrets.local',
@@ -58,7 +60,9 @@ describe('AgentQaConfigSchema — 4-bucket structure', () => {
     const config = {
       workspace: {
         testMatch: ['tests/**/*.yaml'],
+        suiteMatch: ['suites/**/*.suite.yaml'],
         testPathIgnore: ['tests/skip/**'],
+        hooksFile: 'hooks.yaml',
         agentRules: 'rules.md',
         envFile: '.env',
         secretsFile: '.env.secrets.local',
@@ -289,7 +293,9 @@ describe('AgentQaConfigSchema — 4-bucket structure', () => {
     const result = AgentQaConfigSchema.safeParse(withWorkspace({
       workspace: {
         testMatch: ['**/*.yaml'],
+        suiteMatch: ['**/*.suite.yaml'],
         testPathIgnore: ['node_modules'],
+        hooksFile: 'hooks.yaml',
         agentRules: 'rules.md',
         envFile: '.env',
         secretsFile: '.env.secrets.local',
@@ -299,10 +305,10 @@ describe('AgentQaConfigSchema — 4-bucket structure', () => {
   })
 
   it('rejects workspace config that omits each required workspace key', () => {
-    const requiredKeys = ['testMatch', 'agentRules', 'envFile', 'secretsFile'] as const
+    const requiredKeys = ['testMatch', 'suiteMatch', 'hooksFile', 'agentRules', 'envFile', 'secretsFile'] as const
     for (const key of requiredKeys) {
       const workspace = { ...validWorkspace }
-      delete (workspace as any)[key]
+      delete workspace[key]
       const result = AgentQaConfigSchema.safeParse({ workspace })
       expect(result.success, key).toBe(false)
       if (!result.success) {
@@ -318,11 +324,18 @@ describe('AgentQaConfigSchema — 4-bucket structure', () => {
         testMatch: [],
       },
     })
+    const suiteResult = AgentQaConfigSchema.safeParse({
+      workspace: {
+        ...validWorkspace,
+        suiteMatch: [],
+      },
+    })
     expect(result.success).toBe(false)
+    expect(suiteResult.success).toBe(false)
   })
 
   it('rejects empty workspace scalar file keys', () => {
-    const requiredKeys = ['agentRules', 'envFile', 'secretsFile'] as const
+    const requiredKeys = ['hooksFile', 'agentRules', 'envFile', 'secretsFile'] as const
     for (const key of requiredKeys) {
       const result = AgentQaConfigSchema.safeParse({
         workspace: {

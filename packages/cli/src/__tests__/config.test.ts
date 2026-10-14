@@ -10,6 +10,8 @@ function makeValidConfig(overrides: Record<string, unknown> = {}): Record<string
   return {
     workspace: {
       testMatch: ['tests/**/*.yaml'],
+      suiteMatch: ['suites/**/*.suite.yaml'],
+      hooksFile: 'hooks.yaml',
       agentRules: './agent-rules.md',
       envFile: '.env',
       secretsFile: '.env.secrets.local',
@@ -32,7 +34,7 @@ function makeValidConfig(overrides: Record<string, unknown> = {}): Record<string
       mobile: { appState: 'preserve' },
       timeout: { step: '30s', test: '10m', navigation: '10s' },
       healing: { maxAttempts: 3 },
-      planner: { maxSubActions: 20, previousStepCount: 5 },
+      planner: { maxSubActions: 10, previousStepCount: 5 },
       llm: 'default',
     },
     ...overrides,

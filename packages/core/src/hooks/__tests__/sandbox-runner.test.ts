@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { runHookInSandbox, checkDockerAvailable } from '../sandbox-runner.js'
 import type { HookDefinition } from '../types.js'
@@ -193,7 +194,7 @@ describe('runHookInSandbox', () => {
     mockReadFile.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
 
     await runHookInSandbox(makeHook())
-    expect(mockMkdir).toHaveBeenCalledWith('/tmp/agent-qa-hook-abc123/tmp', expect.anything())
+    expect(mockMkdir).toHaveBeenCalledWith(join('/tmp/agent-qa-hook-abc123', 'tmp'), expect.anything())
   })
 
   it('returns failure when container exits non-zero', async () => {
@@ -342,12 +343,12 @@ describe('runHookInSandbox', () => {
     })
 
     expect(mockMkdir).toHaveBeenCalledWith(
-      '/tmp/agent-qa-hook-abc123/.agent-qa-auth-state',
+      join('/tmp/agent-qa-hook-abc123', '.agent-qa-auth-state'),
       expect.anything(),
     )
     expect(mockCp).toHaveBeenCalledWith(
       '/internal/auth/staging-web/admin.json',
-      '/tmp/agent-qa-hook-abc123/.agent-qa-auth-state/storage-state.json',
+      join('/tmp/agent-qa-hook-abc123', '.agent-qa-auth-state', 'storage-state.json'),
     )
 
     const eFlags = dockerArgs.reduce<string[]>((acc, val, i) => {

@@ -90,11 +90,13 @@ describe('analytics identity', () => {
     expect(identity).toEqual({ distinctId: existingId, runtimeContext: 'user', isInternal: false })
     const data = JSON.parse(await readFile(identityPath, 'utf-8'))
     expect(data).toEqual({ distinctId: existingId, is_internal: false })
-    const s = await stat(identityPath)
-    expect(s.mode & 0o777).toBe(0o600)
+    if (process.platform !== 'win32') {
+      const s = await stat(identityPath)
+      expect(s.mode & 0o777).toBe(0o600)
+    }
   })
 
-  it('writes file with 0o600 permissions', async () => {
+  it.skipIf(process.platform === 'win32')('writes file with 0o600 permissions', async () => {
     await writeAnalyticsIdentity('u_alpha-bravo-charlie-delta-echo-foxtrot-golf-hotel-india-juliet', identityPath)
 
     const s = await stat(identityPath)

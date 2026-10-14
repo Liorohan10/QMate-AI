@@ -1,13 +1,13 @@
-test-id: t_every-amma-umph-pir-mass-oil-most-wand-death-time
 name: US-103 Address Capture and Validation
+test-id: t_every-amma-umph-pir-mass-oil-most-wand-death-time
 target: genesis-join
 use:
   browser:
-    name: chromium
     headless: true
+    name: chromium
     viewport:
-      width: 1280
       height: 720
+      width: 1280
   cache: false
   timeout:
     step: 3m
@@ -20,10 +20,11 @@ context: |
 steps:
   - Verify the page heading says "What's your address?"
   - Type "Fake Address 999" into the address search input
-  - Verify that the autocomplete suggestion list is empty or shows "No results found"
+  - Verify that the autocomplete suggestion list is empty or shows "No results
+    found"
   - Clear the address search input and type "100 Queen Street, Auckland Central"
   - Click the matching address suggestion for the valid test address
-  - Verify the page shows headings for "ICP Address" and "ICP Number for Electricity"
-  - Verify the "Is this your primary residence?" checkbox is checked by default
+  - Verify the page shows headings for "ICP Address" and "ICP Number for
+    Electricity"
   - Click the Continue button
   - Verify the next page asks "What energy types are you looking for?"

@@ -210,21 +210,21 @@ describe('resolveCredentials', () => {
 })
 
 describe('resolveLLMModels', () => {
-  it('uses the current Claude fallback when config has no selected LLM', () => {
+  it('uses the current default fallback when config has no selected LLM', () => {
     const resolved = resolveLLMModels({})
 
     expect(resolved.configName).toBe('')
     expect(resolved.planner).toEqual({
-      provider: 'anthropic-subscription',
-      model: 'claude-sonnet-4-6',
+      provider: 'codex-app-server',
+      model: 'gpt-5.6-luna',
     })
     expect(resolved.verifier).toEqual({
-      provider: 'anthropic-subscription',
-      model: 'claude-sonnet-4-6',
+      provider: 'codex-app-server',
+      model: 'gpt-5.6-luna',
     })
   })
 
-  it('uses the current Claude fallback when the selected LLM is missing', () => {
+  it('uses the current default fallback when the selected LLM is missing', () => {
     const resolved = resolveLLMModels({
       registry: {
         llms: [{
@@ -238,8 +238,8 @@ describe('resolveLLMModels', () => {
     })
 
     expect(resolved.configName).toBe('')
-    expect(resolved.planner.model).toBe('claude-sonnet-4-6')
-    expect(resolved.verifier.model).toBe('claude-sonnet-4-6')
+    expect(resolved.planner.model).toBe('gpt-5.6-luna')
+    expect(resolved.verifier.model).toBe('gpt-5.6-luna')
   })
 
   it('preserves explicit named model configs', () => {

@@ -29,6 +29,8 @@ describe('clean-memory command', () => {
     await writeFile(configPath, [
       'workspace:',
       '  testMatch: ["tests/**/*.yaml"]',
+      '  suiteMatch: ["suites/**/*.suite.yaml"]',
+      '  hooksFile: hooks.yaml',
       '  agentRules: agent-rules.md',
       '  envFile: .env',
       '  secretsFile: .env.secrets.local',

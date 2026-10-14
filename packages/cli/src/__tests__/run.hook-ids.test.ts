@@ -166,15 +166,13 @@ vi.mock('@vostride/agent-qa-core', () => ({
   resolveMemoryRoot: vi.fn((_config: unknown, configDir: string) => `${configDir}/agent-qa-memory`),
   generateRunId: vi.fn(() => 'r_able-baker-charlie-delta-echo-foxtrot-golf-hotel-india-juliet'),
   resolveWorkspacePaths: vi.fn(({ config, configPath }: any) => {
-    const configDir = String(configPath).includes('/')
-      ? String(configPath).split('/').slice(0, -1).join('/')
-      : process.cwd()
+    const configDir = path.dirname(path.resolve(configPath))
     for (const key of ['testMatch', 'suiteMatch', 'hooksFile', 'agentRules', 'envFile', 'secretsFile']) {
       if (config.workspace?.[key] === undefined) {
         throw new Error(`Missing required workspace config key: workspace.${key}`)
       }
     }
-    const resolveConfigured = (value: string) => value.startsWith('/') ? value : `${configDir}/${value}`
+    const resolveConfigured = (value: string) => path.isAbsolute(value) ? value : path.resolve(configDir, value)
     return {
       configPath,
       configDir,
@@ -412,7 +410,7 @@ async function runCommand(...args: string[]) {
   }
 }
 
-describe.skip('run command hook identity resolution', () => {
+describe('run command hook identity resolution', () => {
   it('resolves setup and teardown hooks from canonical hook ids', async () => {
     mockParseAllTests.mockResolvedValue({
       tests: [makeTest({ setup: [HOOK_ID], teardown: [HOOK_ID] })],

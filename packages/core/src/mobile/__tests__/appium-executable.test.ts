@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   formatAppiumInstallGuidance,
@@ -7,7 +8,7 @@ import {
 
 describe('resolveAppiumExecutable', () => {
   it('prefers a local POSIX appium binary in the workspace', () => {
-    const local = '/repo/app/node_modules/.bin/appium'
+    const local = resolve('/repo/app/node_modules/.bin/appium')
     const result = resolveAppiumExecutable({
       cwd: '/repo/app',
       platform: 'darwin',
@@ -18,7 +19,7 @@ describe('resolveAppiumExecutable', () => {
   })
 
   it('walks parent directories before falling back to PATH', () => {
-    const local = '/repo/node_modules/.bin/appium'
+    const local = resolve('/repo/node_modules/.bin/appium')
     const result = resolveAppiumExecutable({
       cwd: '/repo/apps/demo/tests/mobile',
       platform: 'linux',
@@ -29,7 +30,7 @@ describe('resolveAppiumExecutable', () => {
   })
 
   it('checks the Windows appium.cmd shim before other local names', () => {
-    const local = '/repo/app/node_modules/.bin/appium.cmd'
+    const local = resolve('/repo/app/node_modules/.bin/appium.cmd')
     const seen: string[] = []
     const result = resolveAppiumExecutable({
       cwd: '/repo/app',

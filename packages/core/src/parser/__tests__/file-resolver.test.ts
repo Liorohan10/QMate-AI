@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { resolveFileReferences } from '../file-resolver.js'
 
@@ -25,10 +26,10 @@ describe('resolveFileReferences', () => {
 
     expect(result.attachments).toHaveLength(1)
     expect(result.attachments[0].name).toBe('screenshot.png')
-    expect(result.attachments[0].path).toBe('/tests/screenshot.png')
+    expect(result.attachments[0].path).toBe(path.resolve('/tests', 'screenshot.png'))
     expect(result.attachments[0].mimeType).toBe('image/png')
     expect(result.attachments[0].content).toBeInstanceOf(Buffer)
-    expect(result.resolvedText).toBe('Upload /tests/screenshot.png')
+    expect(result.resolvedText).toBe(`Upload ${path.resolve('/tests', 'screenshot.png')}`)
   })
 
   it('resolves multiple file references in one step', async () => {
@@ -46,7 +47,7 @@ describe('resolveFileReferences', () => {
     expect(result.attachments).toHaveLength(2)
     expect(result.attachments[0].name).toBe('doc.pdf')
     expect(result.attachments[1].name).toBe('photo.jpg')
-    expect(result.resolvedText).toBe('Upload /tests/doc.pdf and /tests/photo.jpg')
+    expect(result.resolvedText).toBe(`Upload ${path.resolve('/tests', 'doc.pdf')} and ${path.resolve('/tests', 'photo.jpg')}`)
   })
 
   it('step with no file references returns unchanged text and empty attachments', async () => {
@@ -110,7 +111,7 @@ describe('resolveFileReferences', () => {
     )
 
     expect(result.attachments[0].name).toBe('assets/logo.png')
-    expect(result.attachments[0].path).toBe('/tests/assets/logo.png')
+    expect(result.attachments[0].path).toBe(path.resolve('/tests', 'assets/logo.png'))
   })
 
   it('file content is read as Buffer', async () => {

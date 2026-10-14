@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { LanguageModel } from 'ai'
 import type { PlatformAdapter } from '../types/platform.js'
-import type { AccessibilityViolation, StepPhaseEvent, StepResult, TestResult } from '../types/result.js'
+import type { AccessibilityViolation, HealingAttempt, StepPhaseEvent, StepResult, SubActionTrace, TestResult } from '../types/result.js'
 import type { TestDefinition } from '../types/test.js'
 import type { Planner, Verifier, ActionCache, HealingConfig, StepContext } from './types.js'
 import type { MemoryProvider } from '../memory/provider.js'
@@ -16,9 +16,12 @@ import { createTimeoutAbortReason, executeStep, getTimeoutAbortReason, withAbort
 import { VariableStore, interpolateVariables, findUnresolvedTemplates, createExtractor } from './variables.js'
 import { resolveSecretTemplatesInValue, redactSecretValue, type SecretRedactor, type SecretStore } from './secrets.js'
 import { parseAppiumInline } from './appium-inline.js'
+import { parseHookInline, stripHookInline } from './hook-inline.js'
 import { parseRunJSInline, coerceRunJSResult } from './runjs-inline.js'
 import { generateFailureSummary } from './failure-summary.js'
 import type { LogManager } from '../logging/log-manager.js'
+import type { HookDefinition } from '../hooks/types.js'
+import { runHookInSandbox, type SandboxRunnerOptions } from '../hooks/sandbox-runner.js'
 
 const accessibilityWebModuleName: string = '@vostride/agent-qa-web'
 
@@ -66,6 +69,8 @@ export interface RunTestConfig {
   suiteVars?: Record<string, string>
   cliVars?: Record<string, string>
   hookSetupVars?: Record<string, string>
+  inlineHookDefs?: Map<string, HookDefinition>
+  inlineHookSandboxOptions?: SandboxRunnerOptions
   suiteFileContent?: string
   suiteTestIndex?: number
   suiteContext?: string
@@ -234,8 +239,92 @@ export async function runTest(
       deadlineTimers.push(setTimeout(() => abortForTimeout('step', stepTimeout), stepTimeout))
     }
 
-    const originalStepName = rawInstruction
-    let instruction = interpolateVariables(rawInstruction, variableStore)
+    // Inline hook execution: runs BEFORE variable interpolation (D-04, D-07)
+    let instructionAfterHooks = rawInstruction
+    let inlineHookFailed = false
+    let inlineHookAbortResult: StepResult | undefined
+    if (config.inlineHookDefs && config.inlineHookSandboxOptions) {
+      const inlineHookCalls = parseHookInline(rawInstruction)
+      for (const call of inlineHookCalls) {
+        const hookDef = config.inlineHookDefs.get(call.hookId)
+        if (!hookDef) continue
+        const hookExecId = randomUUID()
+        const allVars = Object.fromEntries(variableStore.getAll())
+        await reporter?.onHookStart?.({
+          hookId: hookDef.id,
+          hookName: hookDef.name,
+          phase: 'inline',
+          hookExecutionId: hookExecId,
+          runId: config.runId,
+          stepId: String(stepIndex),
+        })
+        try {
+          const result = await withAbort(
+            runHookInSandbox(hookDef, {
+              ...config.inlineHookSandboxOptions,
+              secretStore: config.secretStore,
+              secretRedactor: config.secretRedactor,
+              envVars: { ...config.inlineHookSandboxOptions.envVars, ...allVars },
+            }),
+            stepAbortController.signal,
+          )
+          await reporter?.onHookEnd?.({
+            hookId: hookDef.id, hookName: hookDef.name, phase: 'inline', hookExecutionId: hookExecId,
+            runId: config.runId,
+            stepId: String(stepIndex),
+            status: result.success ? 'passed' : 'failed',
+            duration: result.duration, stdout: result.stdout, stderr: result.stderr,
+            variables: result.variables, error: result.error,
+          })
+          if (result.success) {
+            variableStore.setAll(result.variables, 'hook')
+          } else {
+            inlineHookFailed = true
+            break
+          }
+        } catch (err: any) {
+          const error = getErrorMessage(err)
+          inlineHookAbortResult = createAbortedStepResult(
+            rawInstruction,
+            performance.now() - startTime,
+            stepAbortController.signal,
+          )
+          await reporter?.onHookEnd?.({
+            hookId: hookDef.id, hookName: hookDef.name, phase: 'inline', hookExecutionId: hookExecId,
+            runId: config.runId,
+            stepId: String(stepIndex),
+            status: 'failed', duration: 0, stdout: '', stderr: '',
+            variables: {}, error,
+          })
+          inlineHookFailed = true
+          break
+        }
+      }
+      instructionAfterHooks = stripHookInline(rawInstruction)
+    }
+
+    if (inlineHookFailed) {
+      steps.push(inlineHookAbortResult ?? {
+        name: rawInstruction,
+        status: 'failed',
+        duration: 0,
+        error: 'Inline hook execution failed',
+        trace: {
+          observation: '',
+          reasoning: 'Inline hook execution failed before step could run',
+          plannedAction: { type: 'waitFor', condition: 'none', timeout: 0 },
+          result: 'failure',
+          error: 'Inline hook execution failed',
+          screenStateBefore: '',
+        },
+      })
+      testFailed = inlineHookAbortResult?.status !== 'cancelled'
+      clearStepScope()
+      break
+    }
+
+    const originalStepName = instructionAfterHooks
+    let instruction = interpolateVariables(instructionAfterHooks, variableStore)
     let hasTemplateVars = originalStepName !== instruction
 
     const stepId = randomUUID()
@@ -484,6 +573,42 @@ export async function runTest(
 
               const recoveryResult = await executeStep(recoveryInstruction, recoveryLoopConfig, recoveryContext)
 
+              const extractHealingAttempts = (rec: StepResult): HealingAttempt[] => {
+                const subActions = rec.trace?.subActions ?? []
+                if (subActions.length > 0) {
+                  return subActions.map((sa: SubActionTrace, idx: number) => ({
+                    action: sa.plannedAction,
+                    observationBefore: sa.screenStateBefore || sa.observation || '',
+                    observationAfter: sa.screenStateAfter,
+                    success: sa.result === 'success',
+                    attemptNumber: idx + 1,
+                    strategy: 'autonomous-recovery',
+                    reasoning: sa.reasoning,
+                    confidence: sa.confidence,
+                  }))
+                }
+                return [{
+                  action: rec.action ?? ({ type: 'waitFor', condition: 'healed' } as any),
+                  observationBefore: rec.trace?.observation ?? '',
+                  observationAfter: rec.trace?.screenStateAfter,
+                  success: rec.status === 'passed',
+                  attemptNumber: 1,
+                  strategy: 'autonomous-recovery',
+                  reasoning: rec.trace?.reasoning,
+                }]
+              }
+
+              const extractHealingScreenshots = (rec: StepResult): Buffer[] => {
+                const shots: Buffer[] = []
+                if (rec.screenshotBefore) shots.push(rec.screenshotBefore)
+                if (rec.screenshot) shots.push(rec.screenshot)
+                for (const sa of rec.trace?.subActions ?? []) {
+                  if (sa.screenshotBefore) shots.push(sa.screenshotBefore)
+                  if (sa.screenshotAfter) shots.push(sa.screenshotAfter)
+                }
+                return shots
+              }
+
               if (recoveryResult.status === 'passed') {
                 runnerLog?.info('Self-healing recovery actions completed. Retrying original step...')
                 const retryContext = {
@@ -491,19 +616,31 @@ export async function runTest(
                   subActionHistory: [],
                 }
                 const retryResult = await executeStep(instruction, loopConfig, retryContext)
+
                 if (retryResult.status === 'passed') {
                   runnerLog?.info(`Step "${instruction}" successfully healed and passed!`)
                   result = {
                     ...retryResult,
                     status: 'healed',
                     error: undefined,
+                    healingAttempts: extractHealingAttempts(recoveryResult),
+                    healingScreenshots: extractHealingScreenshots(recoveryResult),
                   }
                 } else {
                   runnerLog?.warn(`Retry of original step failed: ${retryResult.error}`)
-                  result = retryResult
+                  result = {
+                    ...retryResult,
+                    healingAttempts: extractHealingAttempts(recoveryResult),
+                    healingScreenshots: extractHealingScreenshots(recoveryResult),
+                  }
                 }
               } else {
                 runnerLog?.warn(`Self-healing recovery actions failed: ${recoveryResult.error}`)
+                result = {
+                  ...result,
+                  healingAttempts: extractHealingAttempts(recoveryResult),
+                  healingScreenshots: extractHealingScreenshots(recoveryResult),
+                }
               }
             } catch (healErr: any) {
               runnerLog?.error(`Error during self-healing attempt: ${healErr instanceof Error ? healErr.message : String(healErr)}`)

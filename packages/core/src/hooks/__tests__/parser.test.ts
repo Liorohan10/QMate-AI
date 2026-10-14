@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseHooksFile } from '../parser.js'
 
@@ -63,9 +64,9 @@ hooks:
 `)
     const result = await parseHooksFile('/project/hooks/hooks.yaml')
     expect(result.errors).toHaveLength(0)
-    expect(result.hooks[0].file).toBe('/project/hooks/scripts/auth.ts')
-    expect(result.hooks[0].deps[0]).toBe('/project/hooks/scripts/helpers.ts')
-    expect(result.hooks[0].packageFile).toBe('/project/hooks/package.json')
+    expect(result.hooks[0].file).toBe(path.resolve('/project/hooks', 'scripts/auth.ts'))
+    expect(result.hooks[0].deps[0]).toBe(path.resolve('/project/hooks', 'scripts/helpers.ts'))
+    expect(result.hooks[0].packageFile).toBe(path.resolve('/project/hooks', 'package.json'))
   })
 
   it('returns errors for invalid YAML content', async () => {

@@ -1,0 +1,7 @@
+test-id: t_urde-imp-aspect-shift-ino-estre-fam-stre-apply-mise
+name: Hook runjs comparison
+platform: web
+setup:
+  - Fetch HN Top Story
+steps:
+  - Compare the hook result with the inline JavaScript result
