@@ -1,0 +1,28 @@
+Implement a User Guidance panel in the existing QMate AI test execution UI, following the attached reference screenshot.
+
+When the agent exhausts all self-healing attempts for a failed step, pause execution and display an inline panel below the error banner and above the execution steps list in the left column.
+
+UI Design
+
+- Dark theme with an amber/orange border, subtle dark background, and consistent QMate AI styling.
+- Heading: Need your guidance
+- Status badge: Self-heal exhausted
+- Display the failed step number, instruction, and a short explanation of why recovery failed.
+- Add a multiline text area with placeholder: "Tell the agent what to try next..."
+- Include three buttons:
+  - View screenshot & DOM — opens the existing diagnostic view.
+  - Resume with instructions — sends the user's natural-language guidance to the agent and retries the failed step.
+  - Skip step — skips the step using the existing execution engine, marking it as skipped rather than passed.
+
+Behavior
+
+1. Show this panel only after automated self-healing is exhausted.
+2. Pause the test and wait for user input.
+3. Pass the instructions and available failure context (error, URL, screenshot, DOM, and previous attempts) to the existing recovery agent.
+4. Resume execution from the failed step without restarting the entire test.
+5. If recovery fails again, redisplay the panel with the latest error and allow revised instructions.
+6. Display appropriate loading, success, and error states; prevent duplicate submissions.
+
+Constraints: Reuse existing components, APIs, agent orchestration, and styling. Do not rebuild the dashboard, introduce a new agent, or break browser preview, execution logs, or existing tabs. Make the panel responsive and integrate it into the current execution lifecycle.
+
+Use the attached screenshot as the visual reference. Implement the feature end-to-end and report the files changed.
