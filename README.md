@@ -11,12 +11,11 @@ Write tests in natural language for web applications. QMate-AI uses your locally
 
 - **Natural Language Testing**: Define test workflows and assertions in declarative YAML using plain human language.
 - **Codex CLI App Server Brain**: Uses your local `codex app-server --stdio` JSON-RPC connection as the test planner. No API keys or external subscriptions needed.
-- **Playwright-Powered Execution**: Browser automation is strictly executed via [Playwright](file:///c:/Users/rohan/Documents/Gen%20QE%20Toolkit/QMate-AI/packages/web) (`@vostride/agent-qa-web`), supporting Chromium, Firefox, and WebKit with native clicks, fills, smart waits, and viewport control.
+- **Playwright-Powered Execution**: Browser automation is strictly executed via [Playwright](file:///c:/Users/rohan/Documents/Gen%20QE%20Toolkit/QMate-AI/packages/web), supporting Chromium, Firefox, and WebKit with native clicks, fills, smart waits, and viewport control.
 - **Self-Healing Test Execution**: When a locator, button, or interaction fails due to UI drift, QMate-AI re-inspects the screen state, formulates alternate recovery paths, and heals the step in-flight.
 - **Persistent Execution Memory**: Records observations from past passes and healed runs, curating context to make future executions faster and more resilient.
 - **Smart Action Cache**: Caches validated plan sequences across identical or similar steps to minimize latency and token overhead.
 - **Web Dashboard & Live Editor**: Full React-based dashboard UI for managing test suites, inspecting step-by-step screenshots and timeline videos, editing configs, and running live browser sessions.
-- **Docker Lifecycle Hooks**: Run sandboxed Node, Bun, Python, or Bash containers before/after tests to seed test fixtures, mock APIs, or reset state.
 
 ---
 
@@ -26,11 +25,11 @@ Write tests in natural language for web applications. QMate-AI uses your locally
 flowchart TD
     subgraph UI_CLI["User Interface & Control"]
         WebDash["Dashboard Web UI\n(http://localhost:3470)"]
-        CLI["QMate-AI CLI\n(agent-qa / cli.js)"]
+        CLI["QMate-AI CLI\n"]
         LiveEd["Live Test Editor & Queue"]
     end
 
-    subgraph Core_Engine["QMate-AI Core Harness (@vostride/agent-qa-core)"]
+    subgraph Core_Engine["QMate-AI Core Harness "]
         Runner["Test Runner & Step Orchestrator"]
         Healer["Self-Healing Engine"]
         Cache["Action Cache & Memory Curator"]
@@ -41,7 +40,7 @@ flowchart TD
         Daemon["Codex CLI Daemon\n(codex app-server --stdio)"]
     end
 
-    subgraph Execution["Browser Automation Layer (@vostride/agent-qa-web)"]
+    subgraph Execution["Browser Automation Layer "]
         PW["Playwright Engine\n(Chromium / Firefox / WebKit)"]
         DOM["DOM & Accessibility Extractor"]
         Shot["Viewport Screenshot Capturer"]
